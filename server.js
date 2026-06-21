@@ -170,18 +170,36 @@ app.get('/api/dispositivos', async (_, res) => {
 ═══════════════════════════════════════════════════════════ */
 app.get('/api/historico/:device', async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 200, 1000);
+    // Suporta filtro por tempo via query (recomendado)
+    const periodo = req.query.periodo; // '1h' | '6h' | '24h' | '7d'
+    const limMs = {
+      '1h': 3600e3,
+      '6h': 21600e3,
+      '24h': 86400e3,
+      '7d': 604800e3
+    };
 
-    const result = await pool.query(
-      `SELECT * FROM telemetria
-       WHERE device = $1
-       ORDER BY id DESC
-       LIMIT $2`,
-      [req.params.device, limit]
-    );
+    const hasPeriodo = periodo && limMs[periodo];
+    const sinceExpr = hasPeriodo ? `now() - interval '${Math.floor(limMs[periodo] / 1000)} seconds'` : null;
+
+    const limit = Math.min(parseInt(req.query.limit, 10) || 2000, 10000);
+
+    const sql = hasPeriodo
+      ? `SELECT * FROM telemetria
+         WHERE device = $1
+           AND created_at >= ${sinceExpr}
+         ORDER BY id DESC
+         LIMIT $2`
+      : `SELECT * FROM telemetria
+         WHERE device = $1
+         ORDER BY id DESC
+         LIMIT $2`;
+
+    const result = await pool.query(sql, [req.params.device, limit]);
     res.json(result.rows);
   } catch (e) { fail(res, e); }
 });
+
 
 /* ═══════════════════════════════════════════════════════════
    ÚLTIMOS REGISTROS (global)

@@ -1233,9 +1233,9 @@ function atualizarGraficos(dados) {
   if (showPA || showFP) {
     const ds = [];
     if (showPA) ds.push(
-      { label:'PA (W)', data: series.map(r=>safeN(r.pa)), borderColor:'#5eead4', backgroundColor:'rgba(94,234,212,.07)', tension:.25, pointRadius:1.5 },
-      { label:'PB (W)', data: series.map(r=>safeN(r.pb)), borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,.07)', tension:.25, pointRadius:1.5 },
-      { label:'PC (W)', data: series.map(r=>safeN(r.pc)), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.07)', tension:.25, pointRadius:1.5 }
+      { label:'PA (W)', data: series.map(r=>safeNonNegative(r.pa)), borderColor:'#5eead4', backgroundColor:'rgba(94,234,212,.07)', tension:.25, pointRadius:1.5 },
+      { label:'PB (W)', data: series.map(r=>safeNonNegative(r.pb)), borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,.07)', tension:.25, pointRadius:1.5 },
+      { label:'PC (W)', data: series.map(r=>safeNonNegative(r.pc)), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.07)', tension:.25, pointRadius:1.5 }
     );
     if (showFP) ds.push(
       { label:'FPA', data: series.map(r=>safeN(r.fpa)), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },

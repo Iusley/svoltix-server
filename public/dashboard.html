@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
 <style>
 /* ═══════════════════════════════════════════
    TOKENS
@@ -1190,7 +1192,7 @@ function fmtFp(v) {
 }
 
 
-function CHART_OPTS({ yMin = null, yMax = null } = {}) {
+function CHART_OPTS({ yMin = null, yMax = null, xMaxTicks = 10 } = {}) {
   const yAxis = {
     beginAtZero: false,
     ticks: { color: '#6e88aa', font: { size: 10 } },
@@ -1209,13 +1211,20 @@ function CHART_OPTS({ yMin = null, yMax = null } = {}) {
     },
     scales: {
       x: {
-        ticks: { color: '#6e88aa', maxTicksLimit: 10, font: { size: 10 } },
+        type: 'time',
+        time: {
+          unit: 'minute',
+          tooltipFormat: 'HH:mm',
+          displayFormats: { minute: 'HH:mm' }
+        },
+        ticks: { color: '#6e88aa', maxTicksLimit: xMaxTicks, font: { size: 10 } },
         grid: { color: 'rgba(30,48,80,.6)' }
       },
       y: yAxis
     }
   };
 }
+
 
 function ajustarTicksY(dados, campos) {
   // calcula min/max reais (clamp para evitar “sujar” com valores inválidos)
@@ -1260,7 +1269,20 @@ function atualizarGraficos(dados) {
   const periodo = document.getElementById('selectPeriodo')?.value;
 
   const series = dados.slice().reverse();
-  const labels = series.map(r => fmtLabel(r.created_at));
+
+  // eixo X deve ser tempo real (Chart.js time scale)
+  const points = (campo) => series
+    .map(r => ({ x: new Date(r.created_at), y: safeNonNegative(r[campo]) }))
+    .filter(p => p.x instanceof Date && !isNaN(p.x));
+
+  const pointsRaw = (campo) => series
+    .map(r => ({ x: new Date(r.created_at), y: safeN(r[campo]) }))
+    .filter(p => p.x instanceof Date && !isNaN(p.x));
+
+  const pointsFp = (campo) => series
+    .map(r => ({ x: new Date(r.created_at), y: safeFp(r[campo]) }))
+    .filter(p => p.x instanceof Date && !isNaN(p.x));
+
 
 
   const meta = series.at(-1);
@@ -1290,13 +1312,13 @@ function atualizarGraficos(dados) {
     chartPt = new Chart(ctx, {
       type: 'line',
       data: {
-        labels,
         datasets: [
-          { label:'VA (V)', data: series.map(r=>safeN(r.va)), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.08)', tension:.25, pointRadius:1.5 },
-          { label:'VB (V)', data: series.map(r=>safeN(r.vb)), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.08)', tension:.25, pointRadius:1.5 },
-          { label:'VC (V)', data: series.map(r=>safeN(r.vc)), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.08)', tension:.25, pointRadius:1.5 }
+          { label:'VA (V)', data: points('va'), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.08)', tension:.25, pointRadius:1.5 },
+          { label:'VB (V)', data: points('vb'), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.08)', tension:.25, pointRadius:1.5 },
+          { label:'VC (V)', data: points('vc'), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.08)', tension:.25, pointRadius:1.5 }
         ]
       },
+
       options: {
         ...CHART_OPTS({ yMin, yMax }),
         scales: {
@@ -1320,15 +1342,16 @@ function atualizarGraficos(dados) {
   if (showPA || showFP) {
     const ds = [];
     if (showPA) ds.push(
-      { label:'PA (W)', data: series.map(r=>safeNonNegative(r.pa)), borderColor:'#5eead4', backgroundColor:'rgba(94,234,212,.07)', tension:.25, pointRadius:1.5 },
-      { label:'PB (W)', data: series.map(r=>safeNonNegative(r.pb)), borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,.07)', tension:.25, pointRadius:1.5 },
-      { label:'PC (W)', data: series.map(r=>safeNonNegative(r.pc)), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.07)', tension:.25, pointRadius:1.5 }
+      { label:'PA (W)', data: points('pa'), borderColor:'#5eead4', backgroundColor:'rgba(94,234,212,.07)', tension:.25, pointRadius:1.5 },
+      { label:'PB (W)', data: points('pb'), borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,.07)', tension:.25, pointRadius:1.5 },
+      { label:'PC (W)', data: points('pc'), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.07)', tension:.25, pointRadius:1.5 }
     );
     if (showFP) ds.push(
-      { label:'FPA', data: series.map(r=>safeFp(r.fpa)), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
-      { label:'FPB', data: series.map(r=>safeFp(r.fpb)), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
-      { label:'FPC', data: series.map(r=>safeFp(r.fpc)), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' }
+      { label:'FPA', data: pointsFp('fpa'), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
+      { label:'FPB', data: pointsFp('fpb'), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
+      { label:'FPC', data: pointsFp('fpc'), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' }
     );
+
 
     const maxTicks = ajustarTicksX(series, periodo);
 
@@ -1351,7 +1374,8 @@ function atualizarGraficos(dados) {
       opts.scales.yFP = { position:'right', min:0, max:1, ticks:{ color:'#6e88aa', font:{size:10} }, grid:{ drawOnChartArea:false } };
     }
 
-    chartVafp = new Chart(document.getElementById('chartVafp'), { type:'line', data:{ labels, datasets:ds }, options:opts });
+    chartVafp = new Chart(document.getElementById('chartVafp'), { type:'line', data:{ datasets:ds }, options:opts });
+
 
   }
 
@@ -1360,8 +1384,9 @@ function atualizarGraficos(dados) {
   wHzTc.style.display = (showHZ || showTC) ? 'block' : 'none';
   if (showHZ || showTC) {
     const ds = [];
-    if (showHZ) ds.push({ label:'Hz', data: series.map(r=>safeN(r.hz)), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.08)', tension:.25, pointRadius:1.5 });
-    if (showTC) ds.push({ label:'°C', data: series.map(r=>safeN(r.tc)), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.08)', tension:.25, pointRadius:1.5 });
+    if (showHZ) ds.push({ label:'Hz', data: pointsRaw('hz'), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.08)', tension:.25, pointRadius:1.5 });
+    if (showTC) ds.push({ label:'°C', data: pointsRaw('tc'), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.08)', tension:.25, pointRadius:1.5 });
+
 
     const maxTicks = ajustarTicksX(series, periodo);
     const campos = [];
@@ -1384,7 +1409,8 @@ function atualizarGraficos(dados) {
       }
     };
 
-    chartHzTc = new Chart(document.getElementById('chartHzTc'), { type:'line', data:{ labels, datasets:ds }, options:opts });
+    chartHzTc = new Chart(document.getElementById('chartHzTc'), { type:'line', data:{ datasets:ds }, options:opts });
+
 
   }
 }

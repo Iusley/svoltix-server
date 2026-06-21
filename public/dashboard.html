@@ -693,6 +693,27 @@ Monitoramento em tempo real
                             <option value="7d">Últimos 7 dias</option>
                         </select>
                     </div>
+
+                    <div class="field-row" style="min-width:260px;">
+                        <label class="label">Variáveis no gráfico</label>
+                        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                            <label style="display:flex; gap:8px; align-items:center; font-weight:900; font-size:13px; color:var(--text-muted);">
+                                <input type="checkbox" id="chkVA" checked /> Tensão (VA/VB/VC)
+                            </label>
+                            <label style="display:flex; gap:8px; align-items:center; font-weight:900; font-size:13px; color:var(--text-muted);">
+                                <input type="checkbox" id="chkPA" checked /> Potência (PA/PB/PC)
+                            </label>
+                            <label style="display:flex; gap:8px; align-items:center; font-weight:900; font-size:13px; color:var(--text-muted);">
+                                <input type="checkbox" id="chkFP" checked /> FP (FPA/FPB/FPC)
+                            </label>
+                            <label style="display:flex; gap:8px; align-items:center; font-weight:900; font-size:13px; color:var(--text-muted);">
+                                <input type="checkbox" id="chkHZ" /> HZ
+                            </label>
+                            <label style="display:flex; gap:8px; align-items:center; font-weight:900; font-size:13px; color:var(--text-muted);">
+                        </div>
+                            </label>
+                    </div>
+
                     <button class="btn-primary" style="padding:9px 12px; border-radius:10px;" onclick="carregarHistorico()">Atualizar</button>
                 </div>
 
@@ -1259,23 +1280,59 @@ function atualizarGraficos(dados)
 {
     if(!dados || dados.length === 0) return;
 
+    const showVA = document.getElementById('chkVA')?.checked ?? false; // tensão por fase (VA/VB/VC)
+    const showPA = document.getElementById('chkPA')?.checked ?? false; // potência por fase (PA/PB/PC)
+    const showFP = document.getElementById('chkFP')?.checked ?? false; // FP por fase (FPA/FPB/FPC)
+    const showHZ = document.getElementById('chkHZ')?.checked ?? false;
+    const showTC = document.getElementById('chkTC')?.checked ?? false;
 
-    // O backend ordena por id DESC; para gráfico temporal, invertemos para ficar crescente.
+    // backend ordena por id DESC; para gráfico temporal crescente, invertimos.
     const series = dados.slice().reverse();
-
     const labels = series.map(item => formatTime(item.created_at));
 
-    const pt = series.map(item => safeNum(item.pt));
+    // séries por fase
     const va = series.map(item => safeNum(item.va));
-    const ia = series.map(item => safeNum(item.ia));
-    const fp = series.map(item => safeNum(item.fpt));
+    const vb = series.map(item => safeNum(item.vb));
+    const vc = series.map(item => safeNum(item.vc));
+
+    const pa = series.map(item => safeNum(item.pa));
+    const pb = series.map(item => safeNum(item.pb));
+    const pc = series.map(item => safeNum(item.pc));
+
+    const fpa = series.map(item => safeNum(item.fpa));
+    const fpb = series.map(item => safeNum(item.fpb));
+    const fpc = series.map(item => safeNum(item.fpc));
+
     const hz = series.map(item => safeNum(item.hz));
     const tc = series.map(item => safeNum(item.tc));
 
     const meta = series[series.length - 1];
-    document.getElementById('metaPt').textContent = meta ? `${safeNum(meta.pt).toFixed(0)} W` : '-';
-    document.getElementById('metaVafp').textContent = meta ? `VA ${safeNum(meta.va).toFixed(1)}V | IA ${safeNum(meta.ia).toFixed(1)}A | FP ${safeNum(meta.fpt).toFixed(3)}` : '-';
-    document.getElementById('metaHzTc').textContent = meta ? `HZ ${safeNum(meta.hz).toFixed(2)} | TC ${safeNum(meta.tc).toFixed(2)}` : '-';
+
+    const metaPt = document.getElementById('metaPt');
+    const metaVafp = document.getElementById('metaVafp');
+    const metaHzTc = document.getElementById('metaHzTc');
+
+    if(metaPt)
+    {
+        metaPt.textContent = meta
+            ? `VA ${safeNum(meta.va).toFixed(1)}V | VB ${safeNum(meta.vb).toFixed(1)}V | VC ${safeNum(meta.vc).toFixed(1)}V`
+            : '-';
+    }
+
+    if(metaVafp)
+    {
+        // campo metaVafp agora mostra PA/PB/PC e FP por fase
+        metaVafp.textContent = meta
+            ? `PA ${safeNum(meta.pa).toFixed(0)}W | PB ${safeNum(meta.pb).toFixed(0)}W | PC ${safeNum(meta.pc).toFixed(0)}W | FP ${safeNum(meta.fpa).toFixed(3)}/${safeNum(meta.fpb).toFixed(3)}/${safeNum(meta.fpc).toFixed(3)}`
+            : '-';
+    }
+
+    if(metaHzTc)
+    {
+        metaHzTc.textContent = meta
+            ? `HZ ${safeNum(meta.hz).toFixed(2)} | TC ${safeNum(meta.tc).toFixed(2)}`
+            : '-';
+    }
 
     const common = {
         responsive: true,
@@ -1290,85 +1347,163 @@ function atualizarGraficos(dados)
         }
     };
 
-    const ctxPt = document.getElementById('chartPt');
-    chartPt = new Chart(ctxPt, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'PT (W)',
-                data: pt,
-                borderColor: '#5eead4',
-                backgroundColor: 'rgba(94,234,212,0.12)',
-                tension: 0.25,
-                pointRadius: 2
-            }]
-        },
-        options: common
-    });
+    // wrappers: visibilidade conforme seleção
+    const wrapChartPt = document.getElementById('wrapChartPt');
+    const wrapChartVafp = document.getElementById('wrapChartVafp');
+    const wrapChartHzTc = document.getElementById('wrapChartHzTc');
 
+    if(wrapChartPt) wrapChartPt.style.display = showVA ? 'block' : 'none';
+    if(wrapChartVafp) wrapChartVafp.style.display = (showPA || showFP) ? 'block' : 'none';
+    if(wrapChartHzTc) wrapChartHzTc.style.display = (showHZ || showTC) ? 'block' : 'none';
+
+    // PT -> na prática, VA (tensão por fase)
+    const ctxPt = document.getElementById('chartPt');
+    if(wrapChartPt && showVA && ctxPt)
+    {
+        chartPt = new Chart(ctxPt, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'VA (V) - A',
+                        data: va,
+                        borderColor: '#60a5fa',
+                        backgroundColor: 'rgba(96,165,250,0.12)',
+                        tension: 0.25,
+                        pointRadius: 2
+                    },
+                    {
+                        label: 'VB (V) - B',
+                        data: vb,
+                        borderColor: '#34d399',
+                        backgroundColor: 'rgba(52,211,153,0.12)',
+                        tension: 0.25,
+                        pointRadius: 2
+                    },
+                    {
+                        label: 'VC (V) - C',
+                        data: vc,
+                        borderColor: '#a78bfa',
+                        backgroundColor: 'rgba(167,139,250,0.12)',
+                        tension: 0.25,
+                        pointRadius: 2
+                    }
+                ]
+            },
+            options: common
+        });
+    }
+
+    // Vafp -> potência + FP (por fase)
     const ctxVafp = document.getElementById('chartVafp');
-    chartVafp = new Chart(ctxVafp, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [
+    if(wrapChartVafp && (showPA || showFP) && ctxVafp)
+    {
+        const datasets = [];
+
+        if(showPA)
+        {
+            datasets.push(
                 {
-                    label: 'VA (V)',
-                    data: va,
+                    label: 'PA (W) - A',
+                    data: pa,
+                    borderColor: '#5eead4',
+                    backgroundColor: 'rgba(94,234,212,0.12)',
+                    tension: 0.25,
+                    pointRadius: 2
+                },
+                {
+                    label: 'PB (W) - B',
+                    data: pb,
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251,191,36,0.12)',
+                    tension: 0.25,
+                    pointRadius: 2
+                },
+                {
+                    label: 'PC (W) - C',
+                    data: pc,
+                    borderColor: '#f87171',
+                    backgroundColor: 'rgba(248,113,113,0.12)',
+                    tension: 0.25,
+                    pointRadius: 2
+                }
+            );
+        }
+
+        if(showFP)
+        {
+            datasets.push(
+                {
+                    label: 'FPA - A',
+                    data: fpa,
                     borderColor: '#60a5fa',
                     backgroundColor: 'rgba(96,165,250,0.12)',
                     tension: 0.25,
                     pointRadius: 2
                 },
                 {
-                    label: 'IA (A)',
-                    data: ia,
+                    label: 'FPB - B',
+                    data: fpb,
                     borderColor: '#34d399',
                     backgroundColor: 'rgba(52,211,153,0.12)',
                     tension: 0.25,
                     pointRadius: 2
                 },
                 {
-                    label: 'FP',
-                    data: fp,
-                    borderColor: '#fbbf24',
-                    backgroundColor: 'rgba(251,191,36,0.12)',
-                    tension: 0.25,
-                    pointRadius: 2
-                }
-            ]
-        },
-        options: common
-    });
-
-    const ctxHzTc = document.getElementById('chartHzTc');
-    chartHzTc = new Chart(ctxHzTc, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [
-                {
-                    label: 'HZ',
-                    data: hz,
+                    label: 'FPC - C',
+                    data: fpc,
                     borderColor: '#a78bfa',
                     backgroundColor: 'rgba(167,139,250,0.12)',
                     tension: 0.25,
                     pointRadius: 2
-                },
-                {
-                    label: 'TC',
-                    data: tc,
-                    borderColor: '#f87171',
-                    backgroundColor: 'rgba(248,113,113,0.12)',
-                    tension: 0.25,
-                    pointRadius: 2
                 }
-            ]
-        },
-        options: common
-    });
+            );
+        }
+
+        chartVafp = new Chart(ctxVafp, {
+            type: 'line',
+            data: { labels, datasets },
+            options: common
+        });
+    }
+
+    // Hz/Tc
+    const ctxHzTc = document.getElementById('chartHzTc');
+    if(wrapChartHzTc && (showHZ || showTC) && ctxHzTc)
+    {
+        const datasets = [];
+        if(showHZ)
+        {
+            datasets.push({
+                label: 'HZ',
+                data: hz,
+                borderColor: '#a78bfa',
+                backgroundColor: 'rgba(167,139,250,0.12)',
+                tension: 0.25,
+                pointRadius: 2
+            });
+        }
+        if(showTC)
+        {
+            datasets.push({
+                label: 'TC',
+                data: tc,
+                borderColor: '#f87171',
+                backgroundColor: 'rgba(248,113,113,0.12)',
+                tension: 0.25,
+                pointRadius: 2
+            });
+        }
+
+        chartHzTc = new Chart(ctxHzTc, {
+            type: 'line',
+            data: { labels, datasets },
+            options: common
+        });
+    }
 }
+
 
 async function carregarHistorico()
 {

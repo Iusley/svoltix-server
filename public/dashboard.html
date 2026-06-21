@@ -1123,7 +1123,8 @@ async function carregarHistorico() {
   empty.style.display = 'block'; empty.textContent = 'Carregando…';
 
   try {
-    const res  = await fetch(`${API}/api/historico/${encodeURIComponent(device)}`);
+    const res  = await fetch(`${API}/api/historico/${encodeURIComponent(device)}?periodo=${encodeURIComponent(periodo)}`);
+
     const raw  = await res.json();
 
     if (!raw || !raw.length) {
@@ -1163,23 +1164,31 @@ function safeN(v) {
 function safeNonNegative(v) {
   const n = Number(v);
   if(!isFinite(n)) return 0;
-  // Clamp duro para impedir valores negativos no eixo Y
   if(n < 0) return 0;
   return n;
 }
 
-function safeNonNegativeClamped(v) {
+// FP deve estar no intervalo [0..1]
+function safeFp(v) {
   const n = Number(v);
   if(!isFinite(n)) return 0;
   if(n < 0) return 0;
+  if(n > 1) return 1;
   return n;
 }
+
 
 function fmtLabel(ts) {
   if (!ts) return '';
   const d = new Date(ts);
   return isNaN(d) ? '' : d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
 }
+
+function fmtFp(v) {
+  // exibir no formato x,xx com vírgula em pt-BR
+  return Number(safeFp(v)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 
 const CHART_OPTS = () => ({
   responsive: true,
@@ -1190,8 +1199,15 @@ const CHART_OPTS = () => ({
     tooltip: { backgroundColor: 'rgba(16,28,48,.95)', borderColor: '#1e3050', borderWidth: 1 }
   },
   scales: {
-    x: { ticks: { color: '#6e88aa', maxTicksLimit: 10, font: { size: 10 } }, grid: { color: 'rgba(30,48,80,.6)' } },
-    y: { ticks: { color: '#6e88aa', font: { size: 10 } }, grid: { color: 'rgba(30,48,80,.6)' } }
+    x: {
+      ticks: { color: '#6e88aa', maxTicksLimit: 10, font: { size: 10 } },
+      grid: { color: 'rgba(30,48,80,.6)' }
+    },
+    y: {
+      beginAtZero: true,
+      ticks: { color: '#6e88aa', font: { size: 10 } },
+      grid: { color: 'rgba(30,48,80,.6)' }
+    }
   }
 });
 
@@ -1211,8 +1227,9 @@ function atualizarGraficos(dados) {
   if (meta) {
     document.getElementById('metaPt').textContent =
       `VA ${safeN(meta.va).toFixed(1)}V · VB ${safeN(meta.vb).toFixed(1)}V · VC ${safeN(meta.vc).toFixed(1)}V`;
-    document.getElementById('metaVafp').textContent =
-      `PT ${safeN(meta.pt).toFixed(0)}W · FP ${safeN(meta.fpt).toFixed(3)}`;
+document.getElementById('metaVafp').textContent =
+      `PT ${safeN(meta.pt).toFixed(0)}W · FP ${fmtFp(meta.fpt)}`;
+
     document.getElementById('metaHzTc').textContent =
       `Hz ${safeN(meta.hz).toFixed(2)} · ${safeN(meta.tc).toFixed(1)}°C`;
   }
@@ -1247,10 +1264,11 @@ function atualizarGraficos(dados) {
       { label:'PC (W)', data: series.map(r=>safeNonNegative(r.pc)), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.07)', tension:.25, pointRadius:1.5 }
     );
     if (showFP) ds.push(
-      { label:'FPA', data: series.map(r=>safeN(r.fpa)), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
-      { label:'FPB', data: series.map(r=>safeN(r.fpb)), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
-      { label:'FPC', data: series.map(r=>safeN(r.fpc)), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' }
+      { label:'FPA', data: series.map(r=>safeFp(r.fpa)), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
+      { label:'FPB', data: series.map(r=>safeFp(r.fpb)), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
+      { label:'FPC', data: series.map(r=>safeFp(r.fpc)), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' }
     );
+
     const opts = CHART_OPTS();
     if (showPA && showFP) {
       opts.scales.yFP = { position:'right', min:0, max:1, ticks:{ color:'#6e88aa', font:{size:10} }, grid:{ drawOnChartArea:false } };

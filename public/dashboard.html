@@ -8,6 +8,9 @@
 
 <title>SVoltix Dashboard</title>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -665,7 +668,7 @@ Monitoramento em tempo real
             </div>
         </div>
 
-        <div id="view-historico" style="display:none">
+<div id="view-historico" style="display:none">
             <div class="section-label">Histórico</div>
             <div class="historico-toolbar">
                 <div class="field-row">
@@ -674,8 +677,39 @@ Monitoramento em tempo real
                 </div>
                 <button class="btn-primary" onclick="carregarHistorico()">Carregar</button>
             </div>
+
             <div class="empty" id="historicoEmpty">Selecione um dispositivo.</div>
             <div class="hist-list" id="historicoList"></div>
+
+            <div style="margin-top:18px; display:none" id="historicoCharts">
+                <div class="section-label" style="margin-bottom:10px;">Gráficos</div>
+
+                <div style="display:grid; grid-template-columns:1fr; gap:14px;">
+                    <div class="hist-item">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900;">PT (W)</div>
+                            <div style="font-family:'JetBrains Mono',monospace; color:var(--text-muted); font-size:11px;" id="metaPt">-</div>
+                        </div>
+                        <canvas id="chartPt" height="120"></canvas>
+                    </div>
+
+                    <div class="hist-item">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900;">VA / IA / FP</div>
+                            <div style="font-family:'JetBrains Mono',monospace; color:var(--text-muted); font-size:11px;" id="metaVafp">-</div>
+                        </div>
+                        <canvas id="chartVafp" height="160"></canvas>
+                    </div>
+
+                    <div class="hist-item">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
+                            <div style="font-weight:900;">HZ / TC</div>
+                            <div style="font-family:'JetBrains Mono',monospace; color:var(--text-muted); font-size:11px;" id="metaHzTc">-</div>
+                        </div>
+                        <canvas id="chartHzTc" height="160"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div id="view-config" style="display:none">
@@ -712,7 +746,7 @@ let nomesGrupos = {};
 let editandoGrupoId = null;
 
 const API =
-'https://evidence-spider-inclusive-venice.trycloudflare.com';
+window.location.origin;
 
 function toggleGrupo(grupoId)
 {
@@ -1153,6 +1187,145 @@ async function carregarDispositivosParaHistorico()
     }
 }
 
+let chartPt = null;
+let chartVafp = null;
+let chartHzTc = null;
+
+function destruirGraficos()
+{
+    if(chartPt) { chartPt.destroy(); chartPt = null; }
+    if(chartVafp) { chartVafp.destroy(); chartVafp = null; }
+    if(chartHzTc) { chartHzTc.destroy(); chartHzTc = null; }
+}
+
+function formatTime(x)
+{
+    if(!x) return '';
+    const d = new Date(x);
+    if(Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString();
+}
+
+function safeNum(v)
+{
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function atualizarGraficos(dados)
+{
+    if(!dados || dados.length === 0) return;
+
+    // O backend ordena por id DESC; para gráfico temporal, invertemos para ficar crescente.
+    const series = dados.slice().reverse();
+
+    const labels = series.map(item => formatTime(item.created_at));
+
+    const pt = series.map(item => safeNum(item.pt));
+    const va = series.map(item => safeNum(item.va));
+    const ia = series.map(item => safeNum(item.ia));
+    const fp = series.map(item => safeNum(item.fpt));
+    const hz = series.map(item => safeNum(item.hz));
+    const tc = series.map(item => safeNum(item.tc));
+
+    const meta = series[series.length - 1];
+    document.getElementById('metaPt').textContent = meta ? `${safeNum(meta.pt).toFixed(0)} W` : '-';
+    document.getElementById('metaVafp').textContent = meta ? `VA ${safeNum(meta.va).toFixed(1)}V | IA ${safeNum(meta.ia).toFixed(1)}A | FP ${safeNum(meta.fpt).toFixed(3)}` : '-';
+    document.getElementById('metaHzTc').textContent = meta ? `HZ ${safeNum(meta.hz).toFixed(2)} | TC ${safeNum(meta.tc).toFixed(2)}` : '-';
+
+    const common = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#8ea0bd' } },
+            tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+            x: { ticks: { color: '#8ea0bd' }, grid: { color: 'rgba(142,160,189,0.12)' } },
+            y: { ticks: { color: '#e7edf7' }, grid: { color: 'rgba(142,160,189,0.12)' } }
+        }
+    };
+
+    const ctxPt = document.getElementById('chartPt');
+    chartPt = new Chart(ctxPt, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'PT (W)',
+                data: pt,
+                borderColor: '#5eead4',
+                backgroundColor: 'rgba(94,234,212,0.12)',
+                tension: 0.25,
+                pointRadius: 2
+            }]
+        },
+        options: common
+    });
+
+    const ctxVafp = document.getElementById('chartVafp');
+    chartVafp = new Chart(ctxVafp, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'VA (V)',
+                    data: va,
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'rgba(96,165,250,0.12)',
+                    tension: 0.25,
+                    pointRadius: 2
+                },
+                {
+                    label: 'IA (A)',
+                    data: ia,
+                    borderColor: '#34d399',
+                    backgroundColor: 'rgba(52,211,153,0.12)',
+                    tension: 0.25,
+                    pointRadius: 2
+                },
+                {
+                    label: 'FP',
+                    data: fp,
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251,191,36,0.12)',
+                    tension: 0.25,
+                    pointRadius: 2
+                }
+            ]
+        },
+        options: common
+    });
+
+    const ctxHzTc = document.getElementById('chartHzTc');
+    chartHzTc = new Chart(ctxHzTc, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'HZ',
+                    data: hz,
+                    borderColor: '#a78bfa',
+                    backgroundColor: 'rgba(167,139,250,0.12)',
+                    tension: 0.25,
+                    pointRadius: 2
+                },
+                {
+                    label: 'TC',
+                    data: tc,
+                    borderColor: '#f87171',
+                    backgroundColor: 'rgba(248,113,113,0.12)',
+                    tension: 0.25,
+                    pointRadius: 2
+                }
+            ]
+        },
+        options: common
+    });
+}
+
 async function carregarHistorico()
 {
     const device = document.getElementById('selectDevice').value;
@@ -1176,11 +1349,20 @@ async function carregarHistorico()
 
         if(!dados || dados.length === 0)
         {
+            destruirGraficos();
+            const charts = document.getElementById('historicoCharts');
+            if(charts) charts.style.display = 'none';
             historicoList.innerHTML = '<div class="empty">Sem histórico para este dispositivo.</div>';
             return;
         }
 
         historicoList.innerHTML = '';
+
+        destruirGraficos();
+        const charts = document.getElementById('historicoCharts');
+        if(charts) charts.style.display = 'block';
+
+        atualizarGraficos(dados);
 
         dados.forEach(item =>
         {

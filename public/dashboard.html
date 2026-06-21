@@ -1154,7 +1154,17 @@ async function carregarHistorico() {
 }
 
 /* ─── GRÁFICOS ─── */
-function safeN(v) { const n = Number(v); return isFinite(n) ? n : 0; }
+function safeN(v) {
+  const n = Number(v);
+  if(!isFinite(n)) return 0;
+  return n;
+}
+
+function safeNonNegative(v) {
+  const n = Number(v);
+  if(!isFinite(n)) return 0;
+  return n < 0 ? 0 : n;
+}
 
 function fmtLabel(ts) {
   if (!ts) return '';

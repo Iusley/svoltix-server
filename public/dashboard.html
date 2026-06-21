@@ -1190,26 +1190,65 @@ function fmtFp(v) {
 }
 
 
-const CHART_OPTS = () => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: { mode: 'index', intersect: false },
-  plugins: {
-    legend: { labels: { color: '#6e88aa', font: { size: 11 } } },
-    tooltip: { backgroundColor: 'rgba(16,28,48,.95)', borderColor: '#1e3050', borderWidth: 1 }
-  },
-  scales: {
-    x: {
-      ticks: { color: '#6e88aa', maxTicksLimit: 10, font: { size: 10 } },
-      grid: { color: 'rgba(30,48,80,.6)' }
+function CHART_OPTS({ yMin = null, yMax = null } = {}) {
+  const yAxis = {
+    beginAtZero: false,
+    ticks: { color: '#6e88aa', font: { size: 10 } },
+    grid: { color: 'rgba(30,48,80,.6)' }
+  };
+  if (typeof yMin === 'number') yAxis.min = yMin;
+  if (typeof yMax === 'number') yAxis.max = yMax;
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#6e88aa', font: { size: 11 } } },
+      tooltip: { backgroundColor: 'rgba(16,28,48,.95)', borderColor: '#1e3050', borderWidth: 1 }
     },
-    y: {
-      beginAtZero: true,
-      ticks: { color: '#6e88aa', font: { size: 10 } },
-      grid: { color: 'rgba(30,48,80,.6)' }
+    scales: {
+      x: {
+        ticks: { color: '#6e88aa', maxTicksLimit: 10, font: { size: 10 } },
+        grid: { color: 'rgba(30,48,80,.6)' }
+      },
+      y: yAxis
+    }
+  };
+}
+
+function ajustarTicksY(dados, campos) {
+  // calcula min/max reais (clamp para evitar “sujar” com valores inválidos)
+  let vals = [];
+  for (const r of dados) {
+    for (const c of campos) {
+      const n = Number(r?.[c]);
+      if (isFinite(n)) vals.push(n);
     }
   }
-});
+  if (!vals.length) return { yMin: null, yMax: null };
+
+  let yMin = Math.min(...vals);
+  let yMax = Math.max(...vals);
+
+  // expandir um pouco para melhor visualização
+  const pad = (yMax - yMin) * 0.12 || 1;
+  yMin = yMin - pad;
+  yMax = yMax + pad;
+
+  return { yMin, yMax };
+}
+
+function ajustarTicksX(dados, periodo) {
+  // maxTicksLimit no Chart.js é que controla a “densidade” da grade e labels
+  const map = {
+    '1h': 6,
+    '6h': 8,
+    '24h': 12,
+    '7d': 14
+  };
+  return map[periodo] ?? 10;
+}
 
 function atualizarGraficos(dados) {
   const showVA = document.getElementById('chkVA')?.checked;
@@ -1218,8 +1257,11 @@ function atualizarGraficos(dados) {
   const showHZ = document.getElementById('chkHZ')?.checked;
   const showTC = document.getElementById('chkTC')?.checked;
 
+  const periodo = document.getElementById('selectPeriodo')?.value;
+
   const series = dados.slice().reverse();
   const labels = series.map(r => fmtLabel(r.created_at));
+
 
   const meta = series.at(-1);
 
@@ -1227,18 +1269,24 @@ function atualizarGraficos(dados) {
   if (meta) {
     document.getElementById('metaPt').textContent =
       `VA ${safeN(meta.va).toFixed(1)}V · VB ${safeN(meta.vb).toFixed(1)}V · VC ${safeN(meta.vc).toFixed(1)}V`;
-document.getElementById('metaVafp').textContent =
+
+    document.getElementById('metaVafp').textContent =
       `PT ${safeN(meta.pt).toFixed(0)}W · FP ${fmtFp(meta.fpt)}`;
 
     document.getElementById('metaHzTc').textContent =
       `Hz ${safeN(meta.hz).toFixed(2)} · ${safeN(meta.tc).toFixed(1)}°C`;
   }
 
+
   /* TENSÃO */
   const wPt = document.getElementById('wrapChartPt');
   wPt.style.display = showVA ? 'block' : 'none';
   if (showVA) {
     const ctx = document.getElementById('chartPt');
+
+    const { yMin, yMax } = ajustarTicksY(series, ['va','vb','vc']);
+    const maxTicks = ajustarTicksX(series, periodo);
+
     chartPt = new Chart(ctx, {
       type: 'line',
       data: {
@@ -1249,9 +1297,22 @@ document.getElementById('metaVafp').textContent =
           { label:'VC (V)', data: series.map(r=>safeN(r.vc)), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.08)', tension:.25, pointRadius:1.5 }
         ]
       },
-      options: CHART_OPTS()
+      options: {
+        ...CHART_OPTS({ yMin, yMax }),
+        scales: {
+          ...CHART_OPTS({ yMin, yMax }).scales,
+          x: {
+            ...CHART_OPTS({ yMin, yMax }).scales.x,
+            ticks: {
+              ...CHART_OPTS({ yMin, yMax }).scales.x.ticks,
+              maxTicksLimit: maxTicks
+            }
+          }
+        }
+      }
     });
   }
+
 
   /* POTÊNCIA + FP */
   const wVafp = document.getElementById('wrapChartVafp');
@@ -1269,11 +1330,29 @@ document.getElementById('metaVafp').textContent =
       { label:'FPC', data: series.map(r=>safeFp(r.fpc)), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' }
     );
 
-    const opts = CHART_OPTS();
+    const maxTicks = ajustarTicksX(series, periodo);
+
+    const { yMin, yMax } = ajustarTicksY(series, showPA ? ['pa','pb','pc'] : ['pt']);
+    const opts = {
+      ...CHART_OPTS({ yMin, yMax }),
+      scales: {
+        ...CHART_OPTS({ yMin, yMax }).scales,
+        x: {
+          ...CHART_OPTS({ yMin, yMax }).scales.x,
+          ticks: {
+            ...CHART_OPTS({ yMin, yMax }).scales.x.ticks,
+            maxTicksLimit: maxTicks
+          }
+        }
+      }
+    };
+
     if (showPA && showFP) {
       opts.scales.yFP = { position:'right', min:0, max:1, ticks:{ color:'#6e88aa', font:{size:10} }, grid:{ drawOnChartArea:false } };
     }
+
     chartVafp = new Chart(document.getElementById('chartVafp'), { type:'line', data:{ labels, datasets:ds }, options:opts });
+
   }
 
   /* Hz / TC */
@@ -1283,7 +1362,30 @@ document.getElementById('metaVafp').textContent =
     const ds = [];
     if (showHZ) ds.push({ label:'Hz', data: series.map(r=>safeN(r.hz)), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.08)', tension:.25, pointRadius:1.5 });
     if (showTC) ds.push({ label:'°C', data: series.map(r=>safeN(r.tc)), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.08)', tension:.25, pointRadius:1.5 });
-    chartHzTc = new Chart(document.getElementById('chartHzTc'), { type:'line', data:{ labels, datasets:ds }, options:CHART_OPTS() });
+
+    const maxTicks = ajustarTicksX(series, periodo);
+    const campos = [];
+    if (showHZ) campos.push('hz');
+    if (showTC) campos.push('tc');
+
+    const { yMin, yMax } = ajustarTicksY(series, campos);
+
+    const opts = {
+      ...CHART_OPTS({ yMin, yMax }),
+      scales: {
+        ...CHART_OPTS({ yMin, yMax }).scales,
+        x: {
+          ...CHART_OPTS({ yMin, yMax }).scales.x,
+          ticks: {
+            ...CHART_OPTS({ yMin, yMax }).scales.x.ticks,
+            maxTicksLimit: maxTicks
+          }
+        }
+      }
+    };
+
+    chartHzTc = new Chart(document.getElementById('chartHzTc'), { type:'line', data:{ labels, datasets:ds }, options:opts });
+
   }
 }
 

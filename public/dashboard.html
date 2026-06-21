@@ -1163,7 +1163,16 @@ function safeN(v) {
 function safeNonNegative(v) {
   const n = Number(v);
   if(!isFinite(n)) return 0;
-  return n < 0 ? 0 : n;
+  // Clamp duro para impedir valores negativos no eixo Y
+  if(n < 0) return 0;
+  return n;
+}
+
+function safeNonNegativeClamped(v) {
+  const n = Number(v);
+  if(!isFinite(n)) return 0;
+  if(n < 0) return 0;
+  return n;
 }
 
 function fmtLabel(ts) {

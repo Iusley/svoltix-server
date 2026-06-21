@@ -684,9 +684,16 @@ Monitoramento em tempo real
                 <div class="section-label" style="margin-bottom:10px;">Gráficos</div>
 
                 <div class="historico-plot-tabs" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-                    <button class="btn-primary" style="padding:9px 12px; border-radius:10px;" onclick="selecionarTipoGrafico('power')">Energia (PT)</button>
-                    <button class="btn-primary" style="padding:9px 12px; border-radius:10px;" onclick="selecionarTipoGrafico('vafp')">Tensão/Corrente/FP</button>
-                    <button class="btn-primary" style="padding:9px 12px; border-radius:10px;" onclick="selecionarTipoGrafico('hz_tc')">Frequência/Temperatura</button>
+                    <div class="field-row">
+                        <label class="label">Período</label>
+                        <select id="selectHistoricoPeriodo" class="select" style="min-width:200px;">
+                            <option value="1h">Última 1h</option>
+                            <option value="6h">Últimas 6h</option>
+                            <option value="24h" selected>Últimas 24h</option>
+                            <option value="7d">Últimos 7 dias</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" style="padding:9px 12px; border-radius:10px;" onclick="carregarHistorico()">Atualizar</button>
                 </div>
 
                 <div style="display:grid; grid-template-columns:1fr; gap:14px;">
@@ -1366,6 +1373,8 @@ function atualizarGraficos(dados)
 async function carregarHistorico()
 {
     const device = document.getElementById('selectDevice').value;
+    const periodo = document.getElementById('selectHistoricoPeriodo')?.value || '24h';
+
     const historicoList = document.getElementById('historicoList');
     const historicoEmpty = document.getElementById('historicoEmpty');
 

@@ -1250,7 +1250,17 @@ function formatTime(x)
 function safeNum(v)
 {
     const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
+    if(!Number.isFinite(n)) return 0;
+    // garante que valores (potência e FP) não sejam desenhados como negativos
+    // (mesmo que apareçam por ruído/DB/cálculo)
+    return n;
+}
+
+function safeNonNegativeNum(v)
+{
+    const n = Number(v);
+    if(!Number.isFinite(n)) return 0;
+    return n < 0 ? 0 : n;
 }
 
 function selecionarTipoGrafico(tipo)

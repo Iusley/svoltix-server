@@ -1421,24 +1421,7 @@ async function carregarHistorico()
         {
             const t = item.created_at ? new Date(item.created_at).toLocaleString() : '';
 
-            const hist = document.createElement('div');
-            hist.className = 'hist-item';
-            hist.innerHTML = `
-                <div class="hist-item-head">
-                    <div class="hist-device">${item.device || device}</div>
-                    <div class="hist-time">${t}</div>
-                </div>
-                <div class="hist-grid">
-                    <div class="hist-kv"><div class="hist-k">VA</div><div class="hist-v">${Number(item.va).toFixed(1)} V</div></div>
-                    <div class="hist-kv"><div class="hist-k">IA</div><div class="hist-v">${Number(item.ia).toFixed(1)} A</div></div>
-                    <div class="hist-kv"><div class="hist-k">PT</div><div class="hist-v">${Number(item.pt).toFixed(0)} W</div></div>
-                    <div class="hist-kv"><div class="hist-k">FP</div><div class="hist-v">${Number(item.fpt).toFixed(3)}</div></div>
-                    <div class="hist-kv"><div class="hist-k">HZ</div><div class="hist-v">${Number(item.hz).toFixed(2)}</div></div>
-                    <div class="hist-kv"><div class="hist-k">TC</div><div class="hist-v">${Number(item.tc).toFixed(2)}</div></div>
-                </div>
-            `;
-
-            historicoList.appendChild(hist);
+            // Apenas gráficos; não renderiza lista/valores textuais.
         });
     }
     catch(err)

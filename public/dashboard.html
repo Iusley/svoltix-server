@@ -1378,6 +1378,11 @@ async function carregarHistorico()
     const historicoList = document.getElementById('historicoList');
     const historicoEmpty = document.getElementById('historicoEmpty');
 
+    // Histórico: manter apenas gráficos. Limpa lista de valores.
+    if(historicoList) historicoList.innerHTML = '';
+    if(historicoEmpty) historicoEmpty.style.display = 'none';
+
+
     if(!device)
     {
         historicoEmpty.style.display = 'block';
@@ -1404,7 +1409,9 @@ async function carregarHistorico()
 
         historicoList.innerHTML = '';
 
+        // Gráfico apenas (remove dados em lista)
         destruirGraficos();
+
         const charts = document.getElementById('historicoCharts');
         if(charts) charts.style.display = 'block';
 

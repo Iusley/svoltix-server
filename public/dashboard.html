@@ -680,32 +680,44 @@ Monitoramento em tempo real
             <div class="empty" id="historicoEmpty">Selecione um dispositivo.</div>
             <div class="hist-list" id="historicoList"></div>
 
-<div style="margin-top:18px; display:none; min-height:420px;" id="historicoCharts">
+<div style="margin-top:18px; display:none;" id="historicoCharts">
                 <div class="section-label" style="margin-bottom:10px;">Gráficos</div>
 
+                <div class="historico-plot-tabs" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+                    <button class="btn-primary" style="padding:9px 12px; border-radius:10px;" onclick="selecionarTipoGrafico('power')">Energia (PT)</button>
+                    <button class="btn-primary" style="padding:9px 12px; border-radius:10px;" onclick="selecionarTipoGrafico('vafp')">Tensão/Corrente/FP</button>
+                    <button class="btn-primary" style="padding:9px 12px; border-radius:10px;" onclick="selecionarTipoGrafico('hz_tc')">Frequência/Temperatura</button>
+                </div>
+
                 <div style="display:grid; grid-template-columns:1fr; gap:14px;">
-                    <div class="hist-item">
+                    <div class="hist-item" id="wrapChartPt">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
                             <div style="font-weight:900;">PT (W)</div>
                             <div style="font-family:'JetBrains Mono',monospace; color:var(--text-muted); font-size:11px;" id="metaPt">-</div>
                         </div>
-                        <canvas id="chartPt" height="120"></canvas>
+                        <div style="height:220px; min-height:220px;">
+                            <canvas id="chartPt" height="120" style="width:100%; height:220px;"></canvas>
+                        </div>
                     </div>
 
-                    <div class="hist-item">
+                    <div class="hist-item" id="wrapChartVafp" style="display:none">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
                             <div style="font-weight:900;">VA / IA / FP</div>
                             <div style="font-family:'JetBrains Mono',monospace; color:var(--text-muted); font-size:11px;" id="metaVafp">-</div>
                         </div>
-                        <canvas id="chartVafp" height="160"></canvas>
+                        <div style="height:260px; min-height:260px;">
+                            <canvas id="chartVafp" height="160" style="width:100%; height:260px;"></canvas>
+                        </div>
                     </div>
 
-                    <div class="hist-item">
+                    <div class="hist-item" id="wrapChartHzTc" style="display:none">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px;">
                             <div style="font-weight:900;">HZ / TC</div>
                             <div style="font-family:'JetBrains Mono',monospace; color:var(--text-muted); font-size:11px;" id="metaHzTc">-</div>
                         </div>
-                        <canvas id="chartHzTc" height="160"></canvas>
+                        <div style="height:260px; min-height:260px;">
+                            <canvas id="chartHzTc" height="160" style="width:100%; height:260px;"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1212,9 +1224,34 @@ function safeNum(v)
     return Number.isFinite(n) ? n : 0;
 }
 
+function selecionarTipoGrafico(tipo)
+{
+    // evita re-inicializar gráficos: apenas mostra/esconde wrappers.
+    const wrapPt = document.getElementById('wrapChartPt');
+    const wrapVafp = document.getElementById('wrapChartVafp');
+    const wrapHzTc = document.getElementById('wrapChartHzTc');
+
+    if(!wrapPt || !wrapVafp || !wrapHzTc) return;
+
+    // default: power
+    wrapPt.style.display = 'none';
+    wrapVafp.style.display = 'none';
+    wrapHzTc.style.display = 'none';
+
+    if(tipo === 'power') wrapPt.style.display = 'block';
+    else if(tipo === 'vafp') wrapVafp.style.display = 'block';
+    else if(tipo === 'hz_tc') wrapHzTc.style.display = 'block';
+
+    // force Chart.js to recalc when container becomes visible
+    if(tipo === 'power' && chartPt) chartPt.resize();
+    if(tipo === 'vafp' && chartVafp) chartVafp.resize();
+    if(tipo === 'hz_tc' && chartHzTc) chartHzTc.resize();
+}
+
 function atualizarGraficos(dados)
 {
     if(!dados || dados.length === 0) return;
+
 
     // O backend ordena por id DESC; para gráfico temporal, invertemos para ficar crescente.
     const series = dados.slice().reverse();

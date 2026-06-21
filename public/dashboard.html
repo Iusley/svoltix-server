@@ -14,6 +14,234 @@
 
 <style>
 
+/* Layout inspirado no LiteMe (header + side menu + área de conteúdo) */
+
+.layout{
+    display:flex;
+    gap:18px;
+    align-items:stretch;
+    margin-top:18px;
+}
+
+.side-menu{
+    width:250px;
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:18px;
+    height:fit-content;
+}
+
+.side-brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+}
+
+.side-title{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:18px;
+}
+
+.side-section-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    margin:16px 0 10px;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--panel-border);
+}
+
+.side-item{
+    width:100%;
+    background:transparent;
+    border:1px solid transparent;
+    color:var(--text-muted);
+    padding:10px 12px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:700;
+    font-size:13px;
+    font-family:inherit;
+    text-align:left;
+    transition:background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.side-item:hover{
+    background:rgba(94,234,212,0.06);
+    border-color:rgba(94,234,212,0.15);
+    color:var(--text);
+}
+
+.side-item.active{
+    background:rgba(94,234,212,0.10);
+    border-color:rgba(94,234,212,0.35);
+    color:var(--text);
+}
+
+.side-user{
+    font-size:13px;
+    color:var(--text-muted);
+    margin-bottom:10px;
+    font-weight:700;
+}
+
+.side-logout{
+    width:100%;
+    margin-top:10px;
+    background:transparent;
+    border:1px solid rgba(248,113,113,0.35);
+    color:var(--danger);
+    padding:10px 12px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:800;
+    font-size:13px;
+    font-family:inherit;
+    transition:background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.side-logout:hover{
+    background:rgba(248,113,113,0.10);
+    border-color:var(--danger-hover);
+}
+
+.content{
+    flex:1;
+    min-width:0;
+}
+
+.content-header{
+    margin-bottom:12px;
+}
+
+.content-body{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:16px;
+    padding:18px;
+}
+
+.historico-toolbar{
+    display:flex;
+    gap:10px;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    margin-bottom:12px;
+}
+
+.field-row{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+}
+
+.select{
+    background:var(--bg-soft);
+    border:1px solid var(--panel-border);
+    color:var(--text);
+    padding:10px 12px;
+    border-radius:10px;
+    min-width:220px;
+    outline:none;
+}
+
+.btn-primary{
+    background:var(--accent);
+    color:#04141f;
+    border:none;
+    padding:10px 14px;
+    border-radius:10px;
+    font-weight:900;
+    cursor:pointer;
+    transition:background 0.15s ease, transform 0.05s ease;
+}
+
+.btn-primary:hover{ background:#7ff3df; }
+.btn-primary:active{ transform:scale(0.99); }
+
+.hist-list{
+    margin-top:10px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.hist-item{
+    background:var(--bg-soft);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:14px 14px;
+}
+
+.hist-item-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:10px;
+}
+
+.hist-device{
+    font-weight:900;
+}
+
+.hist-time{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--text-muted);
+    font-size:11px;
+}
+
+.hist-grid{
+    display:grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap:10px;
+}
+
+.hist-kv{
+    background:rgba(94,234,212,0.06);
+    border:1px solid rgba(94,234,212,0.12);
+    border-radius:10px;
+    padding:10px;
+}
+
+.hist-k{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+}
+
+.hist-v{
+    margin-top:6px;
+    font-weight:900;
+    color:var(--accent);
+    font-family:'JetBrains Mono',monospace;
+}
+
+@media (max-width:980px){
+    body{ padding:24px 14px; }
+    .layout{ flex-direction:column; }
+    .side-menu{ width:100%; }
+}
+
+@media (max-width:480px){
+    .hist-grid{ grid-template-columns:1fr; }
+}
+
 :root{
     --bg: #0b1220;
     --bg-soft: #0f1a2e;
@@ -405,10 +633,58 @@ Monitoramento em tempo real
 
 </div>
 
-<div class="section-label">Equipamentos</div>
+<!-- Layout LiteMe-like: header + menu lateral + área de conteúdo -->
+<div class="layout">
 
-<div class="equipamentos-grid" id="equipamentos">
-<div class="empty">Carregando equipamentos...</div>
+<div class="side-menu" id="sideMenu">
+    <div class="side-brand">
+        <span class="side-title">SVoltix</span>
+    </div>
+
+    <div class="side-section-label">Navegação</div>
+
+    <button class="side-item active" id="tab-dashboard" onclick="selecionarTab('dashboard')">Dashboard</button>
+    <button class="side-item" id="tab-historico" onclick="selecionarTab('historico')">Histórico</button>
+    <button class="side-item" id="tab-config" onclick="selecionarTab('config')">Configurações</button>
+
+    <div class="side-section-label">Usuário</div>
+    <div class="side-user" id="usuarioLogado"></div>
+    <button class="side-logout" onclick="sair()">Sair</button>
+</div>
+
+<div class="content">
+    <div class="content-header">
+        <div class="section-label">Dashboard</div>
+    </div>
+
+    <div class="content-body">
+        <div id="view-dashboard">
+            <div class="section-label">Equipamentos</div>
+            <div class="equipamentos-grid" id="equipamentos">
+                <div class="empty">Carregando equipamentos...</div>
+            </div>
+        </div>
+
+        <div id="view-historico" style="display:none">
+            <div class="section-label">Histórico</div>
+            <div class="historico-toolbar">
+                <div class="field-row">
+                    <label class="label">Dispositivo</label>
+                    <select id="selectDevice" class="select"></select>
+                </div>
+                <button class="btn-primary" onclick="carregarHistorico()">Carregar</button>
+            </div>
+            <div class="empty" id="historicoEmpty">Selecione um dispositivo.</div>
+            <div class="hist-list" id="historicoList"></div>
+        </div>
+
+        <div id="view-config" style="display:none">
+            <div class="section-label">Configurações</div>
+            <div class="empty">Em breve.</div>
+        </div>
+    </div>
+</div>
+
 </div>
 
 </div>
@@ -805,8 +1081,146 @@ function sair()
     location.href = "index.html";
 }
 
+function selecionarTab(tab)
+{
+    // remove active
+    document.querySelectorAll('.side-item').forEach(btn => btn.classList.remove('active'));
+
+    if(tab === 'dashboard')
+    {
+        document.getElementById('tab-dashboard').classList.add('active');
+        document.getElementById('view-dashboard').style.display = 'block';
+        document.getElementById('view-historico').style.display = 'none';
+        document.getElementById('view-config').style.display = 'none';
+        document.querySelector('.content-header .section-label').textContent = 'Dashboard';
+    }
+    else if(tab === 'historico')
+    {
+        document.getElementById('tab-historico').classList.add('active');
+        document.getElementById('view-dashboard').style.display = 'none';
+        document.getElementById('view-historico').style.display = 'block';
+        document.getElementById('view-config').style.display = 'none';
+        document.querySelector('.content-header .section-label').textContent = 'Histórico';
+        carregarDispositivosParaHistorico();
+    }
+    else
+    {
+        document.getElementById('tab-config').classList.add('active');
+        document.getElementById('view-dashboard').style.display = 'none';
+        document.getElementById('view-historico').style.display = 'none';
+        document.getElementById('view-config').style.display = 'block';
+        document.querySelector('.content-header .section-label').textContent = 'Configurações';
+    }
+}
+
+async function carregarDispositivosParaHistorico()
+{
+    const sel = document.getElementById('selectDevice');
+    const list = document.getElementById('histListWrapper');
+    const empty = document.getElementById('historicoEmpty');
+
+    if(!sel) return;
+
+    try
+    {
+        sel.disabled = true;
+        empty.textContent = 'Carregando dispositivos...';
+
+        const res = await fetch(`${API}/api/dispositivos`);
+        const dados = await res.json();
+
+        sel.innerHTML = '';
+
+        dados.forEach(d =>
+        {
+            const opt = document.createElement('option');
+            opt.value = d.device;
+            opt.textContent = d.device;
+            sel.appendChild(opt);
+        });
+
+        sel.disabled = false;
+        empty.textContent = 'Selecione um dispositivo.';
+
+        // limpa lista
+        document.getElementById('historicoList').innerHTML = '';
+    }
+    catch(err)
+    {
+        console.error(err);
+        sel.disabled = false;
+        empty.textContent = 'Erro ao carregar dispositivos.';
+    }
+}
+
+async function carregarHistorico()
+{
+    const device = document.getElementById('selectDevice').value;
+    const historicoList = document.getElementById('historicoList');
+    const historicoEmpty = document.getElementById('historicoEmpty');
+
+    if(!device)
+    {
+        historicoEmpty.style.display = 'block';
+        historicoList.innerHTML = '';
+        return;
+    }
+
+    historicoEmpty.style.display = 'none';
+    historicoList.innerHTML = '<div class="empty">Carregando...</div>';
+
+    try
+    {
+        const res = await fetch(`${API}/api/historico/${encodeURIComponent(device)}`);
+        const dados = await res.json();
+
+        if(!dados || dados.length === 0)
+        {
+            historicoList.innerHTML = '<div class="empty">Sem histórico para este dispositivo.</div>';
+            return;
+        }
+
+        historicoList.innerHTML = '';
+
+        dados.forEach(item =>
+        {
+            const t = item.created_at ? new Date(item.created_at).toLocaleString() : '';
+
+            const hist = document.createElement('div');
+            hist.className = 'hist-item';
+            hist.innerHTML = `
+                <div class="hist-item-head">
+                    <div class="hist-device">${item.device || device}</div>
+                    <div class="hist-time">${t}</div>
+                </div>
+                <div class="hist-grid">
+                    <div class="hist-kv"><div class="hist-k">VA</div><div class="hist-v">${Number(item.va).toFixed(1)} V</div></div>
+                    <div class="hist-kv"><div class="hist-k">IA</div><div class="hist-v">${Number(item.ia).toFixed(1)} A</div></div>
+                    <div class="hist-kv"><div class="hist-k">PT</div><div class="hist-v">${Number(item.pt).toFixed(0)} W</div></div>
+                    <div class="hist-kv"><div class="hist-k">FP</div><div class="hist-v">${Number(item.fpt).toFixed(3)}</div></div>
+                    <div class="hist-kv"><div class="hist-k">HZ</div><div class="hist-v">${Number(item.hz).toFixed(2)}</div></div>
+                    <div class="hist-kv"><div class="hist-k">TC</div><div class="hist-v">${Number(item.tc).toFixed(2)}</div></div>
+                </div>
+            `;
+
+            historicoList.appendChild(hist);
+        });
+    }
+    catch(err)
+    {
+        console.error(err);
+        historicoList.innerHTML = '<div class="erro">Erro ao carregar histórico.</div>';
+        historicoEmpty.style.display = 'block';
+        historicoEmpty.textContent = 'Erro ao consultar o servidor.';
+    }
+}
+
+// default view
+selecionarTab('dashboard');
+
 carregarNomesGrupos().then(
     atualizar);
+
 
 setInterval(
     atualizar,

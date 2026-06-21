@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>SVoltix · Login</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+
+:root{
+    --bg: #0b1220;
+    --bg-soft: #0f1a2e;
+    --panel: #121d33;
+    --panel-border: #223252;
+    --text: #e7edf7;
+    --text-muted: #8ea0bd;
+    --accent: #5eead4;
+    --accent-soft: rgba(94,234,212,0.12);
+    --danger: #f87171;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:'Inter',Arial,sans-serif;
+    background:
+        radial-gradient(circle at 15% 0%, rgba(94,234,212,0.08), transparent 40%),
+        radial-gradient(circle at 85% 100%, rgba(94,234,212,0.05), transparent 45%),
+        var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:24px;
+}
+
+.card{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:18px;
+    padding:36px 32px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.35);
+    width:100%;
+    max-width:360px;
+}
+
+.brand{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+    margin-bottom:28px;
+}
+
+.brand-mark{
+    width:52px;
+    height:52px;
+    border-radius:12px;
+    background:var(--accent-soft);
+    border:1px solid rgba(94,234,212,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.brand-mark svg{
+    width:26px;
+    height:26px;
+}
+
+.brand-text{
+    text-align:center;
+}
+
+h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:0.01em;
+    color:var(--text);
+}
+
+.subtitle{
+    color:var(--text-muted);
+    font-size:13px;
+    margin-top:4px;
+}
+
+.field{
+    margin-bottom:16px;
+}
+
+label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    color:var(--text-muted);
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    margin-bottom:8px;
+}
+
+.input-wrap{
+    position:relative;
+}
+
+.input-icon{
+    position:absolute;
+    left:14px;
+    top:50%;
+    transform:translateY(-50%);
+    width:16px;
+    height:16px;
+    color:var(--text-muted);
+    pointer-events:none;
+}
+
+input{
+    width:100%;
+    padding:12px 14px 12px 40px;
+    background:var(--bg-soft);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:14px;
+    outline:none;
+    transition:border-color 0.15s ease, background 0.15s ease;
+}
+
+input::placeholder{
+    color:var(--text-muted);
+}
+
+input:focus{
+    border-color:var(--accent);
+    background:var(--bg);
+}
+
+.toggle-senha{
+    position:absolute;
+    right:10px;
+    top:50%;
+    transform:translateY(-50%);
+    width:30px;
+    height:30px;
+    border:none;
+    background:transparent;
+    color:var(--text-muted);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:6px;
+    transition:color 0.15s ease, background 0.15s ease;
+}
+
+.toggle-senha:hover{
+    color:var(--accent);
+    background:var(--accent-soft);
+}
+
+.toggle-senha svg{
+    width:16px;
+    height:16px;
+}
+
+button.entrar{
+    width:100%;
+    padding:13px;
+    margin-top:8px;
+    cursor:pointer;
+    background:var(--accent);
+    color:#04141f;
+    border:none;
+    border-radius:10px;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:700;
+    letter-spacing:0.02em;
+    transition:background 0.15s ease, transform 0.05s ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+}
+
+button.entrar:hover{
+    background:#7ff3df;
+}
+
+button.entrar:active{
+    transform:scale(0.99);
+}
+
+button.entrar:disabled{
+    opacity:0.6;
+    cursor:default;
+}
+
+.spinner{
+    width:15px;
+    height:15px;
+    border:2px solid rgba(4,20,31,0.25);
+    border-top-color:#04141f;
+    border-radius:50%;
+    animation:spin 0.7s linear infinite;
+    display:none;
+}
+
+button.entrar.loading .spinner{
+    display:inline-block;
+}
+
+button.entrar.loading .entrar-label{
+    display:none;
+}
+
+@keyframes spin{
+    to{ transform:rotate(360deg); }
+}
+
+#msg{
+    color:var(--danger);
+    text-align:center;
+    margin-top:14px;
+    font-size:13px;
+    min-height:18px;
+}
+
+.footer-note{
+    margin-top:24px;
+    text-align:center;
+    color:var(--text-muted);
+    font-size:12px;
+    font-family:'JetBrains Mono',monospace;
+    letter-spacing:0.04em;
+}
+
+@media (max-width:380px){
+    .card{ padding:28px 22px; }
+}
+
+</style>
+
+</head>
+<body>
+
+<div class="card">
+
+<div class="brand">
+
+<div class="brand-mark">
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M13 2L4 14H11L10 22L20 10H13L14 2Z" stroke="#5eead4" stroke-width="1.6" stroke-linejoin="round" fill="rgba(94,234,212,0.15)"/>
+</svg>
+</div>
+
+<div class="brand-text">
+<h1>SVoltix</h1>
+<div class="subtitle">Acesse seu painel de monitoramento</div>
+</div>
+
+</div>
+
+<div class="field">
+<label for="usuario">Usuário</label>
+<div class="input-wrap">
+<svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M20 21v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.6"/>
+</svg>
+<input id="usuario" placeholder="Digite seu usuário" autocomplete="username">
+</div>
+</div>
+
+<div class="field">
+<label for="senha">Senha</label>
+<div class="input-wrap">
+<svg class="input-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="4" y="11" width="16" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/>
+<path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+</svg>
+<input id="senha" type="password" placeholder="Digite sua senha" autocomplete="current-password">
+<button class="toggle-senha" type="button" onclick="alternarSenha()" title="Mostrar senha">
+<svg id="iconeOlho" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+<circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
+</svg>
+</button>
+</div>
+</div>
+
+<button class="entrar" id="btnEntrar" onclick="login()">
+<span class="entrar-label">Entrar</span>
+<span class="spinner"></span>
+</button>
+
+<p id="msg"></p>
+
+</div>
+
+<script>
+
+const API =
+'https://evidence-spider-inclusive-venice.trycloudflare.com';
+
+function alternarSenha()
+{
+    const campo =
+        document.getElementById("senha");
+
+    const icone =
+        document.getElementById("iconeOlho");
+
+    if(campo.type === "password")
+    {
+        campo.type = "text";
+
+        icone.innerHTML =
+        `<path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.36 18.36 0 0 1 4.18-4.94" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14.12 14.12A3 3 0 1 1 9.88 9.88" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`;
+    }
+    else
+    {
+        campo.type = "password";
+
+        icone.innerHTML =
+        `<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>`;
+    }
+}
+
+async function login()
+{
+    const msg =
+        document.getElementById("msg");
+
+    const btn =
+        document.getElementById("btnEntrar");
+
+    let usuario =
+    document.getElementById("usuario").value.trim();
+
+    let senha =
+    document.getElementById("senha").value.trim();
+
+    msg.innerText = "";
+
+    if(usuario === "" || senha === "")
+    {
+        msg.innerText =
+        "Preencha usuário e senha";
+
+        return;
+    }
+
+    btn.disabled = true;
+    btn.classList.add("loading");
+
+    try
+    {
+        const resposta =
+        await fetch(`${API}/login`,{
+            method: 'POST',
+            headers:{
+                'Content-Type':
+                'application/json'
+            },
+            body: JSON.stringify({
+                usuario: usuario,
+                senha: senha
+            })
+        });
+
+        const dados =
+        await resposta.json();
+
+        if(dados.sucesso)
+        {
+            localStorage.setItem("logado","sim");
+            localStorage.setItem("usuario",usuario);
+
+            location.href =
+            "dashboard.html";
+        }
+        else
+        {
+            msg.innerText =
+            "Usuário ou senha inválidos";
+
+            btn.disabled = false;
+            btn.classList.remove("loading");
+        }
+    }
+    catch(error)
+    {
+        console.error(error);
+
+        msg.innerText =
+        "Erro de conexão";
+
+        btn.disabled = false;
+        btn.classList.remove("loading");
+    }
+}
+
+document.getElementById("senha")
+.addEventListener("keydown", e =>
+{
+    if(e.key === "Enter") login();
+});
+
+document.getElementById("usuario")
+.addEventListener("keydown", e =>
+{
+    if(e.key === "Enter") login();
+});
+
+</script>
+
+</body>
+</html>

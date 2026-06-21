@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>SVoltix Dashboard</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+
+:root{
+    --bg: #0b1220;
+    --bg-soft: #0f1a2e;
+    --panel: #121d33;
+    --panel-border: #223252;
+    --text: #e7edf7;
+    --text-muted: #8ea0bd;
+    --accent: #5eead4;
+    --accent-soft: rgba(94,234,212,0.12);
+    --online: #34d399;
+    --warning: #fbbf24;
+    --offline: #f87171;
+    --danger: #f87171;
+    --danger-hover: #ef4444;
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:'Inter',Arial,sans-serif;
+    background:
+        radial-gradient(circle at 15% 0%, rgba(94,234,212,0.08), transparent 40%),
+        radial-gradient(circle at 85% 100%, rgba(94,234,212,0.05), transparent 45%),
+        var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:32px 20px;
+}
+
+.container{
+    max-width:1000px;
+    margin:auto;
+}
+
+.card{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:18px;
+    padding:32px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.35);
+}
+
+.topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:28px;
+    gap:16px;
+    flex-wrap:wrap;
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.brand-mark{
+    width:42px;
+    height:42px;
+    border-radius:10px;
+    background:var(--accent-soft);
+    border:1px solid rgba(94,234,212,0.35);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+}
+
+.brand-mark svg{
+    width:22px;
+    height:22px;
+}
+
+h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:24px;
+    font-weight:700;
+    letter-spacing:0.01em;
+    color:var(--text);
+    line-height:1.2;
+}
+
+.subtitle{
+    color:var(--text-muted);
+    font-size:13px;
+    margin-top:2px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.live-dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:var(--online);
+    box-shadow:0 0 0 0 rgba(52,211,153,0.6);
+    animation:pulse 2s infinite;
+}
+
+@keyframes pulse{
+    0%   { box-shadow:0 0 0 0 rgba(52,211,153,0.55); }
+    70%  { box-shadow:0 0 0 6px rgba(52,211,153,0); }
+    100% { box-shadow:0 0 0 0 rgba(52,211,153,0); }
+}
+
+.topbar-right{
+    display:flex;
+    align-items:center;
+    gap:14px;
+}
+
+#usuarioLogado{
+    font-size:13px;
+    color:var(--text-muted);
+    text-align:right;
+}
+
+#usuarioLogado b{
+    color:var(--text);
+    font-weight:600;
+}
+
+.logout{
+    background:transparent;
+    color:var(--danger);
+    border:1px solid rgba(248,113,113,0.4);
+    border-radius:8px;
+    padding:9px 18px;
+    cursor:pointer;
+    font-size:13px;
+    font-weight:600;
+    font-family:inherit;
+    transition:background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.logout:hover{
+    background:rgba(248,113,113,0.1);
+    border-color:var(--danger-hover);
+    color:#fca5a5;
+}
+
+.section-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    margin-bottom:14px;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--panel-border);
+}
+
+.equipamentos-grid{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.grupo{
+    background:var(--bg-soft);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    overflow:hidden;
+}
+
+.grupo-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 18px;
+    cursor:pointer;
+    user-select:none;
+    transition:background 0.15s ease;
+}
+
+.grupo-header:hover{
+    background:rgba(94,234,212,0.04);
+}
+
+.grupo-header-left{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.chevron{
+    width:16px;
+    height:16px;
+    color:var(--text-muted);
+    transition:transform 0.2s ease;
+    flex-shrink:0;
+}
+
+.grupo.collapsed .chevron{
+    transform:rotate(-90deg);
+}
+
+.grupo.collapsed .grupo-body{
+    max-height:0;
+}
+
+.grupo-icon{
+    width:18px;
+    height:18px;
+    color:var(--text-muted);
+    flex-shrink:0;
+}
+
+.grupo-nome{
+    font-weight:600;
+    font-size:14px;
+    color:var(--text);
+}
+
+.grupo-edit-btn{
+    width:28px;
+    height:28px;
+    border-radius:6px;
+    border:none;
+    background:transparent;
+    color:var(--text-muted);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:background 0.15s ease, color 0.15s ease;
+}
+
+.grupo-edit-btn:hover{
+    background:var(--accent-soft);
+    color:var(--accent);
+}
+
+.grupo-edit-btn svg{
+    width:14px;
+    height:14px;
+}
+
+.grupo-nome-input{
+    font-family:inherit;
+    font-weight:600;
+    font-size:14px;
+    color:var(--text);
+    background:var(--panel);
+    border:1px solid var(--accent);
+    border-radius:6px;
+    padding:4px 8px;
+    outline:none;
+    width:180px;
+}
+
+.grupo-resumo{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--text-muted);
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+}
+
+.grupo-resumo.online{ color:var(--online); background:none; box-shadow:none; }
+.grupo-resumo.warning{ color:var(--warning); background:none; box-shadow:none; }
+.grupo-resumo.offline{ color:var(--offline); background:none; box-shadow:none; }
+
+.grupo-body{
+    max-height:200px;
+    transition:max-height 0.25s ease;
+}
+
+.equipamento{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:16px 18px 16px 46px;
+    border-top:1px solid var(--panel-border);
+    transition:background 0.15s ease;
+}
+
+.equipamento:hover{
+    background:rgba(94,234,212,0.03);
+}
+
+.info{
+    display:flex;
+    align-items:center;
+    gap:14px;
+}
+
+.status{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    flex-shrink:0;
+}
+
+.online{
+    background:var(--online);
+    box-shadow:0 0 0 3px rgba(52,211,153,0.18);
+}
+
+.warning{
+    background:var(--warning);
+    box-shadow:0 0 0 3px rgba(251,191,36,0.18);
+}
+
+.offline{
+    background:var(--offline);
+    box-shadow:0 0 0 3px rgba(248,113,113,0.18);
+}
+
+.nome{
+    font-weight:600;
+    color:var(--text);
+    font-size:15px;
+}
+
+.status-text{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--text-muted);
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+}
+
+.valor{
+    font-family:'JetBrains Mono',monospace;
+    font-size:20px;
+    font-weight:600;
+    color:var(--accent);
+}
+
+.empty, .erro{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--text-muted);
+    font-size:14px;
+}
+
+.erro{
+    color:var(--danger);
+}
+
+@media (max-width:480px){
+    .card{ padding:22px; }
+    .topbar{ flex-direction:column; }
+    .topbar-right{ width:100%; justify-content:space-between; }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="card">
+
+<div class="topbar">
+
+<div class="brand">
+
+<div class="brand-mark">
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M13 2L4 14H11L10 22L20 10H13L14 2Z" stroke="#5eead4" stroke-width="1.6" stroke-linejoin="round" fill="rgba(94,234,212,0.15)"/>
+</svg>
+</div>
+
+<div>
+<h1>SVoltix</h1>
+<div class="subtitle">
+<span class="live-dot"></span>
+Monitoramento em tempo real
+</div>
+</div>
+
+</div>
+
+<div class="topbar-right">
+<div id="usuarioLogado"></div>
+<button class="logout" onclick="sair()">Sair</button>
+</div>
+
+</div>
+
+<div class="section-label">Equipamentos</div>
+
+<div class="equipamentos-grid" id="equipamentos">
+<div class="empty">Carregando equipamentos...</div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+if(localStorage.getItem("logado") != "sim")
+{
+    location.href = "index.html";
+}
+
+document.getElementById(
+    "usuarioLogado"
+).innerHTML =
+"<b>Usuário:</b> " +
+localStorage.getItem("usuario");
+
+const gruposColapsados =
+    new Set();
+
+let nomesGrupos = {};
+
+let editandoGrupoId = null;
+
+const API =
+'https://evidence-spider-inclusive-venice.trycloudflare.com';
+
+function toggleGrupo(grupoId)
+{
+    const el =
+        document.getElementById(
+            grupoId);
+
+    if(!el) return;
+
+    if(gruposColapsados.has(
+        grupoId))
+    {
+        gruposColapsados.delete(
+            grupoId);
+
+        el.classList.remove(
+            "collapsed");
+    }
+    else
+    {
+        gruposColapsados.add(
+            grupoId);
+
+        el.classList.add(
+            "collapsed");
+    }
+}
+
+function editarNomeGrupo(
+    dispositivo,
+    grupoId)
+{
+    editandoGrupoId = grupoId;
+
+    const nomeAtual =
+        nomesGrupos[dispositivo]
+        || dispositivo;
+
+    const span =
+        document.getElementById(
+            "nome-" + grupoId);
+
+    if(!span) return;
+
+    const input =
+        document.createElement(
+            "input");
+
+    input.type = "text";
+    input.className =
+        "grupo-nome-input";
+    input.value = nomeAtual;
+
+    input.onclick = e =>
+        e.stopPropagation();
+
+    input.onkeydown = e =>
+    {
+        if(e.key === "Enter")
+        {
+            input.blur();
+        }
+        if(e.key === "Escape")
+        {
+            input.value =
+                nomeAtual;
+
+            input.blur();
+        }
+    };
+
+    input.onblur = () =>
+        salvarNomeGrupo(
+            dispositivo,
+            grupoId,
+            input.value
+                .trim()
+                || dispositivo);
+
+    span.replaceWith(input);
+
+    input.focus();
+
+    input.select();
+}
+
+async function salvarNomeGrupo(
+    dispositivo,
+    grupoId,
+    novoNome)
+{
+    editandoGrupoId = null;
+
+    nomesGrupos[dispositivo] =
+        novoNome;
+
+    const span =
+        document.createElement(
+            "span");
+
+    span.id =
+        "nome-" + grupoId;
+
+    span.className =
+        "grupo-nome";
+
+    span.textContent =
+        novoNome;
+
+    const input =
+        document.getElementById(
+            "nome-" + grupoId);
+
+    if(input)
+    {
+        input.replaceWith(span);
+    }
+
+    try
+    {
+    await fetch(
+    `${API}/grupos`,
+
+    {
+                method: "POST",
+                headers:
+                {
+                    "Content-Type":
+                    "application/json"
+                },
+                body:
+                JSON.stringify({
+                    dispositivo:
+                        dispositivo,
+                    nome_grupo:
+                        novoNome
+                })
+            });
+    }
+    catch(error)
+    {
+        console.error(
+            "Erro ao salvar nome do grupo:",
+            error);
+    }
+}
+
+async function carregarNomesGrupos()
+{
+    try
+    {
+        const response =
+        await fetch(`${API}/grupos`);
+
+        const dados =
+            await response.json();
+
+        nomesGrupos = {};
+
+        dados.forEach(item =>
+        {
+            nomesGrupos[item.dispositivo] =
+                item.nome_grupo;
+        });
+    }
+    catch(error)
+    {
+        console.error(
+            "Erro ao carregar nomes dos grupos:",
+            error);
+    }
+}
+
+async function atualizar()
+{
+
+    console.log("ATUALIZANDO");
+
+    if(editandoGrupoId !== null)
+    {
+        return;
+    }
+
+    try
+    {
+        const response =
+        await fetch(`${API}/api/dashboard`);
+
+        const dados =
+            await response.json();
+
+        const dispositivos = {};
+
+        dados.forEach(item =>
+        {
+            if(!dispositivos[item.device])
+            {
+                dispositivos[item.device] = item;
+            }
+        });
+
+        let html = "";
+
+        Object.values(
+            dispositivos
+        ).forEach(item =>
+        {
+            const ultimoContato =
+                new Date(
+                    item.created_at);
+
+            const agora =
+                new Date();
+
+            const segundos =
+                (agora -
+                ultimoContato) /
+                1000;
+
+            console.log(
+                item.device,
+                item.created_at,
+                segundos
+            );
+
+            let statusClass;
+            let statusLabel;
+
+            if(segundos < 30)
+            {
+                statusClass = "online";
+                statusLabel = "Online";
+            }
+            else if(segundos < 60)
+            {
+                statusClass = "warning";
+                statusLabel = "Atenção";
+            }
+            else
+            {
+                statusClass = "offline";
+                statusLabel = "Offline";
+            }
+
+            const grupoId =
+                "grupo-" +
+                 item.device
+                    .replace(/[^a-zA-Z0-9]/g, "");
+
+            const dispositivoEscapado =
+                item.device
+                    .replace(/'/g, "\\'");
+
+            const collapsedClass =
+                gruposColapsados.has(
+                    grupoId)
+                ? " collapsed"
+                : "";
+
+            html += `
+            <div class="grupo${collapsedClass}" id="${grupoId}">
+
+                <div class="grupo-header" onclick="toggleGrupo('${grupoId}')">
+
+                    <div class="grupo-header-left">
+
+                        <svg class="chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+
+                        <svg class="grupo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3 9.5L12 3L21 9.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V9.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                        </svg>
+
+                        <span class="grupo-nome" id="nome-${grupoId}">
+                            ${nomesGrupos[item.device] || item.device}
+                        </span>
+
+                        <button class="grupo-edit-btn" onclick="event.stopPropagation(); editarNomeGrupo('${dispositivoEscapado}', '${grupoId}')" title="Renomear grupo">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+
+                    </div>
+
+                    <div class="grupo-resumo ${statusClass}">
+                        ${statusLabel}
+                    </div>
+
+                </div>
+
+                <div class="grupo-body">
+
+                    <div class="equipamento">
+
+                        <div class="info">
+
+                            <div class="status ${statusClass}">
+                            </div>
+
+                            <div>
+                                <div class="nome">
+                                    ${item.device}
+                                </div>
+                                <div class="status-text">
+                                    VA: ${Number(item.va).toFixed(1)}V |
+                                    IA: ${Number(item.ia).toFixed(1)}A |
+                                    FP: ${Number(item.fpt).toFixed(3)}
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="valor">
+
+                            ${Number(item.pt).toFixed(0)} W
+
+                            <div style="
+                                font-size:11px;
+                                color:#8ea0bd;
+                                margin-top:6px;
+                                line-height:1.5;
+                                text-align:right;
+                            ">
+                                VA: ${Number(item.va).toFixed(1)}V<br>
+                                IA: ${Number(item.ia).toFixed(1)}A<br>
+                                FP: ${Number(item.fpt).toFixed(3)}
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+            `;
+        });
+
+        if(html === "")
+        {
+            html =
+            "<div class=\"empty\">Nenhum equipamento encontrado.</div>";
+        }
+
+        document.getElementById(
+            "equipamentos"
+        ).innerHTML = html;
+    }
+    catch(error)
+    {
+        console.error(error);
+
+        document.getElementById(
+            "equipamentos"
+        ).innerHTML =
+        "<div class=\"erro\">Erro ao consultar o servidor.</div>";
+    }
+}
+
+function sair()
+{
+    localStorage.clear();
+    location.href = "index.html";
+}
+
+carregarNomesGrupos().then(
+    atualizar);
+
+setInterval(
+    atualizar,
+    5000);
+
+</script>
+
+</body>
+</html>

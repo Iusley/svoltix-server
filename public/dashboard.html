@@ -715,6 +715,7 @@ Monitoramento em tempo real
                     </div>
 
                     <button class="btn-primary" style="padding:9px 12px; border-radius:10px;" onclick="carregarHistorico()">Atualizar</button>
+                    <button class="btn-primary" style="padding:9px 12px; border-radius:10px; background:rgba(94,234,212,0.18);" onclick="downloadHistoricoSelecionado()">Download</button>
                 </div>
 
                 <div style="display:grid; grid-template-columns:1fr; gap:14px;">
@@ -1504,6 +1505,108 @@ function atualizarGraficos(dados)
     }
 }
 
+
+function baixarTextoComoArquivo(nome, texto)
+{
+    const blob = new Blob([texto], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nome;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+}
+
+function getSelecionadosGrafico()
+{
+    const chkVA = document.getElementById('chkVA');
+    const chkPA = document.getElementById('chkPA');
+    const chkFP = document.getElementById('chkFP');
+    const chkHZ = document.getElementById('chkHZ');
+    const chkTC = document.getElementById('chkTC');
+
+    return {
+        va: !!chkVA?.checked,
+        pa: !!chkPA?.checked,
+        fp: !!chkFP?.checked,
+        hz: !!chkHZ?.checked,
+        tc: !!chkTC?.checked
+    };
+}
+
+async function downloadHistoricoSelecionado()
+{
+    const device = document.getElementById('selectDevice').value;
+    const periodo = document.getElementById('selectHistoricoPeriodo')?.value || '24h';
+
+    if(!device)
+    {
+        alert('Selecione um dispositivo.');
+        return;
+    }
+
+    const selecionados = getSelecionadosGrafico();
+
+    // se nada estiver marcado, baixa tudo que o usuário já espera (va+pa+fp+hz+tc)
+    const temAlgo = selecionados.va || selecionados.pa || selecionados.fp || selecionados.hz || selecionados.tc;
+    const usar = temAlgo
+        ? selecionados
+        : { va: true, pa: true, fp: true, hz: true, tc: true };
+
+    try
+    {
+        const res = await fetch(`${API}/api/historico/${encodeURIComponent(device)}`);
+        const dados = await res.json();
+
+        if(!dados || dados.length === 0)
+        {
+            alert('Sem dados para baixar.');
+            return;
+        }
+
+        const cols = ['created_at', 'device'];
+        if(usar.va) cols.push('va', 'vb', 'vc');
+        if(usar.pa) cols.push('pa', 'pb', 'pc');
+        if(usar.fp) cols.push('fpa', 'fpb', 'fpc');
+        if(usar.hz) cols.push('hz');
+        if(usar.tc) cols.push('tc');
+
+        const esc = v => {
+            const s = v === null || v === undefined ? '' : String(v);
+            // csv simples
+            return '"' + s.replace(/"/g,'""') + '"';
+        };
+
+        const linhas = [];
+        linhas.push(cols.join(','));
+
+        dados.forEach(item =>
+        {
+            const row = [];
+            cols.forEach(c =>
+            {
+                if(c === 'device') row.push(esc(item.device ?? device));
+                else row.push(esc(item[c]));
+            });
+            linhas.push(row.join(','));
+        });
+
+        const safeDevice = String(device).replace(/[^a-zA-Z0-9-_]/g, '_');
+        const safePeriodo = String(periodo).replace(/[^a-zA-Z0-9-_]/g, '_');
+        const nome = `historico_${safeDevice}_${safePeriodo}.csv`;
+
+        baixarTextoComoArquivo(nome, linhas.join('\n'));
+    }
+    catch(err)
+    {
+        console.error(err);
+        alert('Erro ao baixar dados.');
+    }
+}
 
 async function carregarHistorico()
 {

@@ -3,1445 +3,1069 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SVoltix Pulse · Dashboard</title>
+<title>SVoltix | Monitoramento de Utilidades</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-
 <style>
-/* ═══════════════════════════════════════════
-   TOKENS
-═══════════════════════════════════════════ */
 :root {
-  --bg:           #080f1c;
-  --bg-soft:      #0c1526;
-  --panel:        #101c30;
-  --panel-hover:  #122036;
+  --bg: #080f1c;
+  --bg-soft: #0c1526;
+  --panel: #101c30;
+  --panel-2: #13233d;
   --panel-border: #1e3050;
-  --text:         #e8edf7;
-  --text-muted:   #6e88aa;
-  --accent:       #5eead4;
-  --accent-dim:   rgba(94,234,212,.10);
-  --accent-glow:  rgba(94,234,212,.18);
-  --online:       #34d399;
-  --warning:      #fbbf24;
-  --offline:      #f87171;
-  --danger:       #f87171;
-  --danger-dim:   rgba(248,113,113,.12);
-  --sidebar-w:    232px;
-  --topbar-h:     56px;
-  --radius:       14px;
+  --text: #e8edf7;
+  --text-muted: #8ba1c2;
+  --accent: #5eead4;
+  --accent-2: #38bdf8;
+  --accent-dim: rgba(94,234,212,.11);
+  --online: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --orange: #fb6a3d;
+  --sidebar-w: 188px;
+  --topbar-h: 48px;
+  --radius: 8px;
 }
-
-*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
 body {
-  font-family: 'Inter', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  display: flex;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-/* ═══════════════════════════════════════════
-   SCROLLBAR
-═══════════════════════════════════════════ */
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 10px; }
-
-/* ═══════════════════════════════════════════
-   SIDEBAR
-═══════════════════════════════════════════ */
-.sidebar {
-  width: var(--sidebar-w);
-  min-height: 100vh;
-  background: var(--panel);
-  border-right: 1px solid var(--panel-border);
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0; left: 0; bottom: 0;
-  z-index: 200;
-  transition: transform .25s ease;
-  overflow-y: auto;
-}
-
-.sidebar-brand {
-  padding: 20px 18px 16px;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  border-bottom: 1px solid var(--panel-border);
-  flex-shrink: 0;
-}
-
-.logo-mark {
-  width: 34px; height: 34px;
-  border-radius: 9px;
-  background: var(--accent-dim);
-  border: 1px solid rgba(94,234,212,.28);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 12px var(--accent-glow);
-  flex-shrink: 0;
-}
-.logo-mark svg { width: 17px; height: 17px; }
-
-.brand-names { line-height: 1.1; }
-.brand-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 16px; font-weight: 700;
-  color: var(--text);
-}
-.brand-tag {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--accent); opacity: .8;
-}
-
-.nav { flex: 1; padding: 10px 10px; overflow-y: auto; }
-
-.nav-section {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9.5px; letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 14px 8px 6px;
-  opacity: .7;
-}
-
-.nav-item {
-  display: flex; align-items: center; gap: 9px;
-  padding: 9px 10px;
-  border-radius: 9px;
-  cursor: pointer;
-  font-size: 13px; font-weight: 500;
-  color: var(--text-muted);
-  border: 1px solid transparent;
-  transition: all .14s;
-  margin-bottom: 2px;
-  user-select: none;
-}
-.nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
-.nav-item:hover { background: var(--accent-dim); color: var(--text); border-color: rgba(94,234,212,.08); }
-.nav-item.active {
-  background: var(--accent-dim);
-  color: var(--accent);
-  border-color: rgba(94,234,212,.18);
-  font-weight: 600;
-}
-
-.sidebar-footer {
-  padding: 14px;
-  border-top: 1px solid var(--panel-border);
-  flex-shrink: 0;
-}
-
-.user-chip {
-  display: flex; align-items: center; gap: 9px;
-  padding: 10px 11px;
-  border-radius: 10px;
-  background: var(--bg-soft);
-  border: 1px solid var(--panel-border);
-}
-.user-av {
-  width: 30px; height: 30px;
-  border-radius: 8px;
-  background: var(--accent-dim);
-  border: 1px solid rgba(94,234,212,.2);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; color: var(--accent);
-  flex-shrink: 0;
-}
-.user-info { flex: 1; min-width: 0; }
-.user-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.user-role { font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
-
-.btn-logout {
-  width: 28px; height: 28px;
-  background: transparent; border: none;
-  color: var(--text-muted); cursor: pointer;
-  border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  transition: color .14s, background .14s;
-  flex-shrink: 0;
-}
-.btn-logout:hover { color: var(--danger); background: var(--danger-dim); }
-.btn-logout svg { width: 14px; height: 14px; }
-
-/* ═══════════════════════════════════════════
-   MAIN
-═══════════════════════════════════════════ */
-.main {
-  margin-left: var(--sidebar-w);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  min-width: 0;
-}
-
-/* ── TOPBAR ── */
-.topbar {
-  height: var(--topbar-h);
-  background: rgba(16,28,48,.9);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--panel-border);
-  display: flex; align-items: center;
-  padding: 0 24px; gap: 14px;
-  position: sticky; top: 0; z-index: 100;
-}
-
-.hamburger {
-  display: none;
-  width: 32px; height: 32px;
-  background: transparent; border: none; cursor: pointer;
-  color: var(--text-muted); border-radius: 7px;
-  align-items: center; justify-content: center;
-  transition: all .14s;
-}
-.hamburger:hover { background: var(--accent-dim); color: var(--accent); }
-.hamburger svg { width: 18px; height: 18px; }
-
-.breadcrumb {
-  flex: 1;
-  display: flex; align-items: center; gap: 7px;
-  font-size: 12.5px; color: var(--text-muted);
-}
-.breadcrumb b { color: var(--text); font-weight: 600; }
-.breadcrumb-sep { opacity: .35; font-size: 15px; }
-
-.live-badge {
-  display: flex; align-items: center; gap: 5px;
-  background: rgba(52,211,153,.08);
-  border: 1px solid rgba(52,211,153,.2);
-  border-radius: 20px;
-  padding: 4px 10px;
-  font-size: 10px; font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--online);
-  letter-spacing: .06em;
-}
-.live-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%; background: var(--online);
-  animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(52,211,153,.55); }
-  70%  { box-shadow: 0 0 0 5px rgba(52,211,153,0); }
-  100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
-}
-
-/* ── CONTEÚDO ── */
-.content { flex: 1; padding: 24px; }
-
-.view { display: none; }
-.view.active { display: block; }
-
-/* ── PAGE HEADER ── */
-.page-hd {
-  margin-bottom: 22px;
-  display: flex; align-items: flex-start;
-  justify-content: space-between; gap: 12px; flex-wrap: wrap;
-}
-.page-title {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 20px; font-weight: 700; color: var(--text);
-}
-.page-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-
-/* ═══════════════════════════════════════════
-   COMPONENTES
-═══════════════════════════════════════════ */
-
-/* ── CARD ── */
-.card {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius);
-  padding: 20px;
-}
-.card-title {
-  font-size: 12px; font-weight: 600;
-  color: var(--text); margin-bottom: 4px;
-}
-.card-desc {
-  font-size: 11px; color: var(--text-muted);
-  font-family: 'JetBrains Mono', monospace;
-  margin-bottom: 16px;
-}
-
-/* ── KPI ── */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 12px; margin-bottom: 20px;
-}
-
-.kpi {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius);
-  padding: 16px 18px;
-  position: relative; overflow: hidden;
-  transition: border-color .2s;
-}
-.kpi::after {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, var(--accent), transparent);
-  opacity: 0; transition: opacity .2s;
-}
-.kpi:hover { border-color: rgba(94,234,212,.25); }
-.kpi:hover::after { opacity: 1; }
-
-.kpi-ico {
-  position: absolute; top: 14px; right: 14px;
-  width: 28px; height: 28px; border-radius: 7px;
-  background: var(--accent-dim);
-  display: flex; align-items: center; justify-content: center;
-}
-.kpi-ico svg { width: 13px; height: 13px; color: var(--accent); }
-
-.kpi-label {
-  font-size: 10px; font-family: 'JetBrains Mono', monospace;
-  text-transform: uppercase; letter-spacing: .1em;
-  color: var(--text-muted); margin-bottom: 8px;
-}
-.kpi-val {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 24px; font-weight: 700; color: var(--text); line-height: 1;
-}
-.kpi-unit { font-size: 12px; color: var(--text-muted); font-weight: 400; margin-left: 2px; }
-.kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
-
-/* ── SECTION LABEL ── */
-.slabel {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--text-muted);
-  padding-bottom: 10px; margin-bottom: 14px;
-  border-bottom: 1px solid var(--panel-border);
-}
-
-/* ── GRIDS ── */
-.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
-
-/* ── GRUPOS (equipamentos) ── */
-.grupo {
-  background: var(--bg-soft);
-  border: 1px solid var(--panel-border);
-  border-radius: 12px; overflow: hidden;
-  margin-bottom: 8px;
-  transition: border-color .15s;
-}
-.grupo:hover { border-color: rgba(94,234,212,.12); }
-
-.grupo-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 13px 16px; cursor: pointer; user-select: none;
-  transition: background .14s;
-}
-.grupo-header:hover { background: rgba(94,234,212,.03); }
-.grupo-header-left { display: flex; align-items: center; gap: 10px; }
-
-.chevron {
-  width: 15px; height: 15px; color: var(--text-muted);
-  transition: transform .2s; flex-shrink: 0;
-}
-.grupo.collapsed .chevron { transform: rotate(-90deg); }
-.grupo.collapsed .grupo-body { max-height: 0 !important; overflow: hidden; }
-
-.grupo-icon { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
-
-.grupo-nome { font-weight: 600; font-size: 13.5px; color: var(--text); }
-.grupo-nome-input {
-  font-family: inherit; font-weight: 600; font-size: 13.5px;
-  color: var(--text); background: var(--panel);
-  border: 1px solid var(--accent); border-radius: 6px;
-  padding: 3px 8px; outline: none; width: 170px;
-}
-
-.grupo-edit-btn {
-  width: 26px; height: 26px; border-radius: 6px; border: none;
-  background: transparent; color: var(--text-muted);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; flex-shrink: 0; transition: all .14s;
-}
-.grupo-edit-btn:hover { background: var(--accent-dim); color: var(--accent); }
-.grupo-edit-btn svg { width: 13px; height: 13px; }
-
-.grupo-status-badge {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
-  padding: 3px 8px; border-radius: 20px;
-}
-.grupo-status-badge.online  { background: rgba(52,211,153,.1);  color: var(--online); }
-.grupo-status-badge.warning { background: rgba(251,191,36,.1);  color: var(--warning); }
-.grupo-status-badge.offline { background: rgba(248,113,113,.1); color: var(--offline); }
-
-.grupo-body { max-height: 400px; transition: max-height .25s ease; overflow: hidden; }
-
-.equipamento {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 14px 16px 14px 42px;
-  border-top: 1px solid var(--panel-border);
-  transition: background .14s; cursor: pointer;
-}
-.equipamento:hover { background: rgba(94,234,212,.025); }
-
-.eq-left { display: flex; align-items: center; gap: 12px; }
-.eq-dot {
-  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
-}
-.eq-dot.online  { background: var(--online);  box-shadow: 0 0 0 3px rgba(52,211,153,.15); }
-.eq-dot.warning { background: var(--warning); box-shadow: 0 0 0 3px rgba(251,191,36,.15); }
-.eq-dot.offline { background: var(--offline); box-shadow: 0 0 0 3px rgba(248,113,113,.15); }
-
-.eq-name { font-weight: 600; font-size: 14px; color: var(--text); }
-.eq-meta {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: .06em;
-  margin-top: 2px;
-}
-.eq-power {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 19px; font-weight: 600; color: var(--accent);
-  text-align: right;
-}
-.eq-power-sub {
-  font-size: 10px; color: var(--text-muted);
-  margin-top: 4px; line-height: 1.6; text-align: right;
-}
-
-/* ── HISTÓRICO ── */
-.hist-toolbar {
-  display: flex; gap: 10px; align-items: flex-end;
-  flex-wrap: wrap; margin-bottom: 16px;
-}
-
-.field-col { display: flex; flex-direction: column; gap: 6px; }
-.f-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--text-muted);
-}
-.f-select {
-  background: var(--bg-soft);
-  border: 1px solid var(--panel-border);
-  color: var(--text);
-  padding: 9px 12px; border-radius: 9px;
-  min-width: 210px; outline: none;
-  font-family: inherit; font-size: 13px;
-  transition: border-color .14s;
-}
-.f-select:focus { border-color: var(--accent); }
-
-.chart-checks {
-  display: flex; gap: 14px; flex-wrap: wrap;
-  align-items: center; padding: 10px 14px;
-  background: var(--bg-soft); border: 1px solid var(--panel-border);
-  border-radius: 9px; margin-bottom: 14px;
-}
-.chk-label {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 600; color: var(--text-muted);
-  cursor: pointer; transition: color .14s;
-}
-.chk-label:hover { color: var(--text); }
-.chk-label input { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
-
-.hist-chart-wrap {
-  background: var(--bg-soft);
-  border: 1px solid var(--panel-border);
-  border-radius: 12px; padding: 16px;
-  margin-bottom: 12px;
-}
-.hist-chart-hd {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 12px;
-}
-.hist-chart-title { font-weight: 700; font-size: 13px; color: var(--text); }
-.hist-chart-meta {
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--text-muted); font-size: 10px;
-}
-.hist-canvas-wrap { height: 220px; }
-
-/* ── BOTÕES ── */
-.btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 9px 15px; border-radius: 9px;
-  font-size: 12.5px; font-weight: 700; font-family: inherit;
-  cursor: pointer; border: none; transition: all .14s;
-}
-.btn svg { width: 13px; height: 13px; }
-.btn-accent { background: var(--accent); color: #05131f; }
-.btn-accent:hover { background: #80f2df; box-shadow: 0 0 14px var(--accent-glow); }
-.btn-ghost {
-  background: transparent; color: var(--text-muted);
-  border: 1px solid var(--panel-border);
-}
-.btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-
-/* ── CONFIG ── */
-.cfg-grid { display: grid; grid-template-columns: 200px 1fr; gap: 16px; }
-.cfg-menu { display: flex; flex-direction: column; gap: 3px; }
-.cfg-item {
-  padding: 9px 12px; border-radius: 9px; cursor: pointer;
-  font-size: 13px; font-weight: 500; color: var(--text-muted);
-  transition: all .14s;
-}
-.cfg-item:hover { background: var(--accent-dim); color: var(--text); }
-.cfg-item.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
-
-.cfg-panel { display: none; }
-.cfg-panel.active { display: block; }
-
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-.form-group { margin-bottom: 14px; }
-.form-label {
-  display: block; font-size: 11px; font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
-  text-transform: uppercase; letter-spacing: .09em;
-  color: var(--text-muted); margin-bottom: 7px;
-}
-.form-input {
-  width: 100%; padding: 10px 13px;
-  background: var(--bg-soft); border: 1px solid var(--panel-border);
-  border-radius: 9px; color: var(--text); font-family: inherit; font-size: 13.5px;
-  outline: none; transition: border-color .14s, box-shadow .14s;
-}
-.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
-
-/* ── EMPTY / ERRO ── */
-.empty-state, .err-state {
-  padding: 48px 20px; text-align: center;
-  font-size: 13px; color: var(--text-muted);
-}
-.err-state { color: var(--danger); }
-
-/* ── TOAST ── */
-.toasts {
-  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
-  display: flex; flex-direction: column; gap: 8px;
-}
-.toast {
-  background: var(--panel); border: 1px solid var(--panel-border);
-  border-radius: 12px; padding: 12px 16px;
-  display: flex; align-items: center; gap: 9px;
-  box-shadow: 0 8px 30px rgba(0,0,0,.4);
-  animation: toastIn .25s ease; min-width: 240px; max-width: 340px;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif;
+  background: #f3f7fb;
+  color: #19334f;
   font-size: 13px;
 }
-.toast.ok  { border-left: 3px solid var(--online); }
-.toast.err { border-left: 3px solid var(--danger); }
-.toast.inf { border-left: 3px solid var(--accent); }
-.toast-ico { width: 14px; height: 14px; flex-shrink: 0; }
-.toast.ok  .toast-ico { color: var(--online); }
-.toast.err .toast-ico { color: var(--danger); }
-.toast.inf .toast-ico { color: var(--accent); }
-@keyframes toastIn { from { transform: translateX(30px); opacity:0; } to { transform: none; opacity:1; } }
-
-/* ═══════════════════════════════════════════
-   RESPONSIVO
-═══════════════════════════════════════════ */
-@media (max-width: 900px) {
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+.app { min-height: 100vh; display: flex; }
+.sidebar {
+  width: var(--sidebar-w);
+  position: fixed;
+  inset: 0 auto 0 0;
+  background: linear-gradient(180deg, var(--panel), #0b1730);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+  box-shadow: 8px 0 24px rgba(8,15,28,.16);
+}
+.brand {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid rgba(94,234,212,.28);
+}
+.mark svg { width: 19px; height: 19px; }
+.brand-name { font-size: 21px; font-weight: 800; letter-spacing: .01em; line-height: 1; }
+.brand-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.area-switch {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.area-select {
+  width: 100%;
+  border: 0;
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 9px 10px;
+  outline: 0;
+}
+.nav { padding: 8px 0; flex: 1; overflow: auto; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 14px;
+  color: var(--text);
+  border-left: 3px solid transparent;
+  opacity: .88;
+}
+.nav-item:hover { background: rgba(94,234,212,.08); opacity: 1; }
+.nav-item.active {
+  background: rgba(94,234,212,.12);
+  border-left-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.nav-item svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--orange);
+  color: white;
+  border-radius: 7px;
+  padding: 3px 7px;
+  font-weight: 800;
+}
+.sidebar-footer {
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent);
+  color: #06202c;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+.user-meta { min-width: 0; }
+.user-meta b { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-meta span { display: block; font-size: 10px; color: var(--text-muted); }
+.main {
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+  width: calc(100% - var(--sidebar-w));
+}
+.topbar {
+  height: var(--topbar-h);
+  background: var(--panel);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 15;
+}
+.topbar-title { font-weight: 800; letter-spacing: .01em; }
+.topbar-sub { color: var(--text-muted); border-left: 1px solid rgba(255,255,255,.16); padding-left: 10px; }
+.topbar-spacer { flex: 1; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(94,234,212,.25);
+  background: rgba(94,234,212,.1);
+  color: var(--accent);
+  border-radius: 999px;
+  min-height: 24px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.content { padding: 20px 24px 28px; }
+.view { display: none; }
+.view.active { display: block; }
+.page-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.1;
+  font-weight: 600;
+  color: #23628f;
+}
+.title-ico {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: #23628f;
+  color: white;
+  display: inline-grid;
+  place-items: center;
+}
+.title-ico svg { width: 17px; height: 17px; }
+.toolbar, .filters {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.field { min-width: 160px; flex: 1; }
+.field.sm { max-width: 135px; min-width: 120px; }
+.label {
+  display: block;
+  color: #5d6f86;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+.input, .select {
+  width: 100%;
+  height: 31px;
+  border: 1px solid #d5e0eb;
+  background: white;
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #223952;
+  outline: 0;
+}
+.input:focus, .select:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(56,189,248,.12); }
+.btn {
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 14px;
+  font-weight: 800;
+  color: white;
+  background: #23628f;
+}
+.btn svg { width: 14px; height: 14px; }
+.btn:hover { filter: brightness(1.06); }
+.btn.accent { background: var(--accent); color: #05202b; }
+.btn.orange { background: var(--orange); }
+.btn.ghost { background: white; color: #23628f; border: 1px solid #cddceb; }
+.btn.icon { width: 34px; padding: 0; }
+.seg {
+  display: inline-flex;
+  background: #dfe9f3;
+  border-radius: 999px;
+  padding: 2px;
+}
+.seg button {
+  height: 26px;
+  border: 0;
+  padding: 0 15px;
+  border-radius: 999px;
+  color: #23628f;
+  background: transparent;
+  font-weight: 800;
+}
+.seg button.active { background: var(--panel); color: white; }
+.notice {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #c9ecff;
+  color: #23628f;
+  border: 1px solid #aee1fb;
+  padding: 9px 12px;
+  border-radius: 4px;
+  margin-bottom: 14px;
+}
+.notice svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.cards { display: grid; gap: 12px; }
+.grid-4 { grid-template-columns: repeat(4, minmax(170px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+.grid-2 { grid-template-columns: repeat(2, minmax(280px, 1fr)); }
+.kpi {
+  min-height: 88px;
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #23628f;
+  color: white;
+  box-shadow: 0 1px 8px rgba(16,28,48,.16);
+}
+.kpi .ico {
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+}
+.kpi .ico svg { width: 27px; height: 27px; color: white; }
+.kpi .body { padding: 13px 14px; }
+.kpi .label { color: #cce4f8; margin-bottom: 4px; }
+.kpi strong { display: block; font-size: 25px; line-height: 1; }
+.kpi small { display: block; color: #d8edf9; font-size: 11px; margin-top: 7px; }
+.panel {
+  background: white;
+  border: 1px solid #d8e2ec;
+  border-radius: var(--radius);
+  box-shadow: 0 1px 7px rgba(16,28,48,.08);
+  overflow: hidden;
+}
+.panel-hd {
+  min-height: 40px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #23628f;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.panel-body { padding: 14px; }
+.chart-box { height: 255px; position: relative; }
+.chart-box.tall { height: 315px; }
+.empty {
+  display: grid;
+  place-items: center;
+  min-height: 175px;
+  color: #5d6f86;
+  text-align: center;
+}
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 760px; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2ebf3; }
+th {
+  background: #e7eef6;
+  color: #3c4f67;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 800;
+}
+tbody tr:nth-child(even) { background: #f4f9fc; }
+tbody tr:hover { background: #edf8fb; }
+.dashboard-row td { height: 42px; }
+.power { color: #23628f; font-weight: 800; white-space: nowrap; }
+.power svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 5px; }
+.id-note { display: inline; margin-left: 8px; color: #7890aa; font-size: 11px; }
+.status-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+.status-dot.online { background: var(--online); }
+.status-dot.warning { background: var(--warning); }
+.status-dot.offline { background: var(--danger); }
+.dashboard-row { cursor: pointer; }
+.alert-card {
+  background: #23628f;
+  color: white;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.alert-card .alert-hd {
+  background: var(--orange);
+  padding: 12px 14px;
+  font-weight: 800;
+  display: flex;
+  justify-content: space-between;
+}
+.alert-card .alert-body { padding: 24px 14px; min-height: 145px; }
+.alert-card .alert-foot {
+  background: var(--orange);
+  padding: 9px 14px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+.gauge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.gauge { text-align: center; }
+.gauge canvas { max-height: 180px; }
+.gauge b { display: block; margin-bottom: 8px; }
+.metric-list { display: grid; gap: 0; }
+.metric-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid #e4edf5;
+}
+.metric-line:last-child { border-bottom: 0; }
+.metric-line b { color: #23628f; font-size: 16px; }
+.tabs { display: flex; gap: 22px; border-bottom: 1px solid #d8e2ec; margin-bottom: 14px; }
+.tab {
+  padding: 0 0 10px;
+  color: #445a72;
+  font-weight: 700;
+  border-bottom: 2px solid transparent;
+}
+.tab.active { color: #23628f; border-color: #23628f; }
+.form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-items: end; }
+.billing-table input {
+  height: 27px;
+  border: 1px solid #cbd9e6;
+  border-radius: 5px;
+  padding: 0 8px;
+}
+.tree-layout { display: grid; grid-template-columns: 300px 1fr; gap: 18px; }
+.tree {
+  background: #e8f0f8;
+  border: 1px solid #d3deea;
+  border-radius: var(--radius);
+  padding: 12px;
+  max-height: 560px;
+  overflow: auto;
+}
+.tree-search { margin-bottom: 12px; }
+.tree-group { margin: 9px 0; font-weight: 800; color: #23628f; }
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 5px 7px 5px 17px;
+  border-radius: 5px;
+  color: #36506b;
+}
+.tree-item.active, .tree-item:hover { background: white; }
+.cfg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.section-title { color: #23628f; font-size: 18px; margin: 0 0 12px; font-weight: 500; }
+.download-layout { display: grid; grid-template-columns: minmax(420px, 1fr) 310px; gap: 18px; align-items: start; }
+.radio-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.radio-box {
+  background: white;
+  border: 1px solid #d8e2ec;
+  border-radius: 5px;
+  padding: 9px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.summary-row { display: flex; gap: 10px; padding: 12px 0; border-bottom: 1px solid #d8e2ec; }
+.summary-row svg { width: 16px; color: #23628f; }
+.fab {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--panel);
+  color: white;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 28px rgba(8,15,28,.28);
+  z-index: 25;
+}
+.fab svg { width: 21px; }
+.toast {
+  position: fixed;
+  right: 24px;
+  top: 62px;
+  background: var(--panel);
+  color: white;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: .18s;
+  z-index: 40;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.mobile-menu { display: none; }
+@media (max-width: 980px) {
   .sidebar { transform: translateX(-100%); }
-  .sidebar.open { transform: none; box-shadow: 4px 0 30px rgba(0,0,0,.5); }
-  .main { margin-left: 0; }
-  .hamburger { display: flex; }
-  .g2, .g3 { grid-template-columns: 1fr; }
-  .kpi-grid { grid-template-columns: 1fr 1fr; }
-  .cfg-grid { grid-template-columns: 1fr; }
-  .form-row { grid-template-columns: 1fr; }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; width: 100%; }
+  .mobile-menu { display: inline-flex; }
+  .grid-4, .grid-3, .grid-2, .cfg-grid, .download-layout, .tree-layout { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr 1fr; }
+  .gauge-grid { grid-template-columns: repeat(2, 1fr); }
 }
-@media (max-width: 480px) {
-  .content { padding: 14px; }
-  .kpi-grid { grid-template-columns: 1fr; }
-  .hist-toolbar { flex-direction: column; align-items: stretch; }
+@media (max-width: 620px) {
+  .content { padding: 16px 12px 24px; }
+  .topbar-sub, .pill.hide-sm { display: none; }
+  h1 { font-size: 23px; }
+  .form-grid, .radio-grid, .gauge-grid { grid-template-columns: 1fr; }
+  .kpi { grid-template-columns: 48px 1fr; }
 }
-
-.sidebar-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.55); z-index: 199;
-}
-.sidebar-overlay.open { display: block; }
 </style>
 </head>
 <body>
-
-<!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar" id="sidebar">
-
-  <div class="sidebar-brand">
-    <div class="logo-mark">
-      <svg viewBox="0 0 24 24" fill="none">
-        <path d="M13 2L4 14H11L10 22L20 10H13L14 2Z"
-              stroke="#5eead4" stroke-width="1.7" stroke-linejoin="round"
-              fill="rgba(94,234,212,0.15)"/>
-      </svg>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h7l-1 8 10-12h-7l1-8Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" fill="rgba(94,234,212,.16)"/></svg></div>
+      <div><div class="brand-name">SVoltix</div><div class="brand-sub">Monitoramento de Utilidades</div></div>
     </div>
-    <div class="brand-names">
-      <div class="brand-title">SVoltix</div>
-      <div class="brand-tag">Pulse</div>
+    <div class="area-switch"><select class="area-select" id="areaSelect" onchange="setSelectedDevice(this.value)"><option>Carregando...</option></select></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="avatar">S</div>
+      <div class="user-meta"><b id="userName">IST EFICIENCIA</b><span>Operacao</span></div>
     </div>
-  </div>
+  </aside>
 
-  <nav class="nav">
-    <div class="nav-section">Principal</div>
+  <main class="main">
+    <header class="topbar">
+      <button class="btn icon ghost mobile-menu" onclick="toggleSidebar()" title="Menu"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <div class="topbar-title">SVoltix</div>
+      <div class="topbar-sub" id="breadcrumb">Meus Dashboards</div>
+      <div class="topbar-spacer"></div>
+      <span class="pill hide-sm">Powered by SVoltix</span>
+      <span class="pill" id="livePill"><span class="status-dot online"></span>Online</span>
+      <button class="btn icon ghost" onclick="sair()" title="Sair"><svg viewBox="0 0 24 24" fill="none"><path d="M10 17l5-5-5-5M15 12H3M21 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
 
-    <div class="nav-item active" id="tab-dashboard" onclick="ir('dashboard')">
-      <svg viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="3" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
-        <rect x="14" y="3" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
-        <rect x="14" y="12" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
-        <rect x="3" y="16" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
-      </svg>
-      Dashboard
-    </div>
+    <section class="content">
+      <div class="view active" id="view-dashboards"></div>
+      <div class="view" id="view-home"></div>
+      <div class="view" id="view-monitoramento"></div>
+      <div class="view" id="view-historico"></div>
+      <div class="view" id="view-analise"></div>
+      <div class="view" id="view-faturamento"></div>
+      <div class="view" id="view-geracao"></div>
+      <div class="view" id="view-relatorios"></div>
+      <div class="view" id="view-alertas"></div>
+      <div class="view" id="view-downloads"></div>
+      <div class="view" id="view-config"></div>
+    </section>
+  </main>
+</div>
+<button class="fab" onclick="toast('Novo dashboard preparado para cadastro')" title="Adicionar"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+<div class="toast" id="toast"></div>
 
-    <div class="nav-section">Análise</div>
-
-    <div class="nav-item" id="tab-historico" onclick="ir('historico')">
-      <svg viewBox="0 0 24 24" fill="none">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      Histórico
-    </div>
-
-    <div class="nav-section">Sistema</div>
-
-    <div class="nav-item" id="tab-config" onclick="ir('config')">
-      <svg viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" stroke-width="1.6"/>
-      </svg>
-      Configurações
-    </div>
-  </nav>
-
-  <div class="sidebar-footer">
-    <div class="user-chip">
-      <div class="user-av" id="userAv">AD</div>
-      <div class="user-info">
-        <div class="user-name" id="userNameEl">—</div>
-        <div class="user-role">Operador</div>
-      </div>
-      <button class="btn-logout" onclick="sair()" title="Sair">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="1.6"/>
-          <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="1.6"/>
-          <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="1.6"/>
-        </svg>
-      </button>
-    </div>
-  </div>
-
-</aside>
-
-<div class="sidebar-overlay" id="overlay" onclick="fecharSidebar()"></div>
-
-<!-- ═══ MAIN ═══ -->
-<main class="main">
-
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <button class="hamburger" id="hambBtn" onclick="toggleSidebar()">
-      <svg viewBox="0 0 24 24" fill="none">
-        <line x1="3" y1="6"  x2="21" y2="6"  stroke="currentColor" stroke-width="2"/>
-        <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2"/>
-        <line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2"/>
-      </svg>
-    </button>
-    <div class="breadcrumb">
-      SVoltix <span class="breadcrumb-sep">/</span>
-      <b id="breadcrumbLabel">Dashboard</b>
-    </div>
-    <div class="live-badge"><span class="live-dot"></span>LIVE</div>
-  </div>
-
-  <!-- CONTEÚDO -->
-  <div class="content">
-
-    <!-- ══════════════════════════
-         VIEW: DASHBOARD
-    ══════════════════════════ -->
-    <div class="view active" id="view-dashboard">
-
-      <div class="page-hd">
-        <div>
-          <div class="page-title">Dashboard</div>
-          <div class="page-desc">Monitoramento em tempo real · atualiza a cada 5 s</div>
-        </div>
-        <button class="btn btn-ghost" onclick="atualizar()">
-          <svg viewBox="0 0 24 24" fill="none"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="1.6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-          Atualizar
-        </button>
-      </div>
-
-      <!-- KPIs -->
-      <div class="kpi-grid" id="kpiGrid">
-        <!-- preenchido via JS -->
-        <div class="kpi"><div class="kpi-label">Potência Total</div><div class="kpi-val" id="kpiPT">—<span class="kpi-unit">W</span></div><div class="kpi-sub" id="kpiPTsub">Aguardando dados</div></div>
-        <div class="kpi"><div class="kpi-label">Fator de Potência</div><div class="kpi-val" id="kpiFP">—</div><div class="kpi-sub">Média total</div></div>
-        <div class="kpi"><div class="kpi-label">Frequência</div><div class="kpi-val" id="kpiHz">—<span class="kpi-unit">Hz</span></div><div class="kpi-sub">Rede</div></div>
-        <div class="kpi"><div class="kpi-label">Online</div><div class="kpi-val" id="kpiOnline" style="color:var(--online)">—</div><div class="kpi-sub" id="kpiTotSub">de — dispositivos</div></div>
-        <div class="kpi"><div class="kpi-label">Offline</div><div class="kpi-val" id="kpiOffline" style="color:var(--danger)">—</div><div class="kpi-sub">Sem comunicação</div></div>
-        <div class="kpi"><div class="kpi-label">Temperatura</div><div class="kpi-val" id="kpiTC">—<span class="kpi-unit">°C</span></div><div class="kpi-sub">Média</div></div>
-      </div>
-
-      <!-- Equipamentos -->
-      <div class="card">
-        <div class="slabel">Equipamentos</div>
-        <div id="equipamentos">
-          <div class="empty-state">Carregando equipamentos…</div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ══════════════════════════
-         VIEW: HISTÓRICO
-    ══════════════════════════ -->
-    <div class="view" id="view-historico">
-
-      <div class="page-hd">
-        <div>
-          <div class="page-title">Histórico</div>
-          <div class="page-desc">Série temporal por dispositivo com gráficos interativos</div>
-        </div>
-        <button class="btn btn-ghost" id="btnDownload" onclick="downloadCSV()" style="display:none">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="1.6"/><polyline points="7 10 12 15 17 10" stroke="currentColor" stroke-width="1.6"/><line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="1.6"/></svg>
-          Baixar CSV
-        </button>
-      </div>
-
-      <div class="card" style="margin-bottom:14px">
-        <div class="hist-toolbar">
-          <div class="field-col">
-            <span class="f-label">Dispositivo</span>
-            <select id="selectDevice" class="f-select"><option value="">Selecionar…</option></select>
-          </div>
-          <div class="field-col">
-            <span class="f-label">Período</span>
-            <select id="selectPeriodo" class="f-select" style="min-width:170px">
-              <option value="1h">Última 1 hora</option>
-              <option value="6h">Últimas 6 horas</option>
-              <option value="24h" selected>Últimas 24 horas</option>
-              <option value="7d">Últimos 7 dias</option>
-            </select>
-          </div>
-          <button class="btn btn-accent" onclick="carregarHistorico()">
-            <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.6"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="1.6"/></svg>
-            Buscar
-          </button>
-        </div>
-      </div>
-
-      <!-- Gráficos -->
-      <div id="historicoCharts" style="display:none">
-        <div class="chart-checks">
-          <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.1em;margin-right:4px">Exibir:</span>
-          <label class="chk-label"><input type="checkbox" id="chkVA" checked> Tensão (VA/VB/VC)</label>
-          <label class="chk-label"><input type="checkbox" id="chkPA" checked> Potência (PA/PB/PC)</label>
-          <label class="chk-label"><input type="checkbox" id="chkFP" checked> Fator de Potência</label>
-          <label class="chk-label"><input type="checkbox" id="chkHZ"> Frequência (Hz)</label>
-          <label class="chk-label"><input type="checkbox" id="chkTC"> Temperatura (°C)</label>
-          <button class="btn btn-ghost" style="margin-left:auto;padding:6px 12px;font-size:11px" onclick="carregarHistorico()">Atualizar gráficos</button>
-        </div>
-
-        <div id="wrapChartPt" class="hist-chart-wrap">
-          <div class="hist-chart-hd">
-            <div class="hist-chart-title">Tensão por Fase — VA / VB / VC</div>
-            <div class="hist-chart-meta" id="metaPt">—</div>
-          </div>
-          <div class="hist-canvas-wrap"><canvas id="chartPt"></canvas></div>
-        </div>
-
-        <div id="wrapChartVafp" class="hist-chart-wrap" style="display:none">
-          <div class="hist-chart-hd">
-            <div class="hist-chart-title">Potência Ativa & Fator de Potência</div>
-            <div class="hist-chart-meta" id="metaVafp">—</div>
-          </div>
-          <div class="hist-canvas-wrap"><canvas id="chartVafp"></canvas></div>
-        </div>
-
-        <div id="wrapChartHzTc" class="hist-chart-wrap" style="display:none">
-          <div class="hist-chart-hd">
-            <div class="hist-chart-title">Frequência & Temperatura</div>
-            <div class="hist-chart-meta" id="metaHzTc">—</div>
-          </div>
-          <div class="hist-canvas-wrap"><canvas id="chartHzTc"></canvas></div>
-        </div>
-      </div>
-
-      <div id="historicoEmpty" class="empty-state">Selecione um dispositivo e clique em Buscar.</div>
-      <div id="historicoErr"   class="err-state"   style="display:none">Erro ao carregar dados.</div>
-
-    </div>
-
-    <!-- ══════════════════════════
-         VIEW: CONFIGURAÇÕES
-    ══════════════════════════ -->
-    <div class="view" id="view-config">
-
-      <div class="page-hd">
-        <div>
-          <div class="page-title">Configurações</div>
-          <div class="page-desc">Parâmetros do sistema</div>
-        </div>
-      </div>
-
-      <div class="cfg-grid">
-        <div class="card" style="padding:10px;height:fit-content">
-          <div class="cfg-menu">
-            <div class="cfg-item active" onclick="cfgIr('api',this)">API & Conexão</div>
-            <div class="cfg-item" onclick="cfgIr('mqtt',this)">MQTT</div>
-            <div class="cfg-item" onclick="cfgIr('conta',this)">Conta</div>
-          </div>
-        </div>
-
-        <div>
-          <!-- API -->
-          <div class="cfg-panel active card" id="cfg-api">
-            <div class="slabel">API & Conexão</div>
-            <div class="form-group">
-              <label class="form-label">URL da API (Cloudflare Tunnel)</label>
-              <input class="form-input" id="cfgApiUrl" placeholder="https://…trycloudflare.com">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Intervalo de atualização (segundos)</label>
-              <input class="form-input" type="number" id="cfgInterval" value="5" min="2" max="60">
-            </div>
-            <button class="btn btn-accent" onclick="salvarCfgApi()">Salvar</button>
-          </div>
-
-          <!-- MQTT -->
-          <div class="cfg-panel card" id="cfg-mqtt">
-            <div class="slabel">Configuração MQTT</div>
-            <div class="form-row">
-              <div class="form-group"><label class="form-label">Broker Host</label><input class="form-input" id="mqttHost" value="localhost"></div>
-              <div class="form-group"><label class="form-label">Porta</label><input class="form-input" id="mqttPort" value="1883"></div>
-            </div>
-            <div class="form-group"><label class="form-label">Tópico</label><input class="form-input" id="mqttTopic" value="svoltix/pulse/#"></div>
-            <button class="btn btn-accent" onclick="toast('Configuração MQTT salva','ok')">Salvar</button>
-          </div>
-
-          <!-- Conta -->
-          <div class="cfg-panel card" id="cfg-conta">
-            <div class="slabel">Conta</div>
-            <div class="form-group"><label class="form-label">Usuário</label><input class="form-input" id="cfgUser" readonly></div>
-            <div class="form-group"><label class="form-label">Nova senha</label><input class="form-input" type="password" id="cfgNovaSenha" placeholder="Deixe em branco para não alterar"></div>
-            <button class="btn btn-accent" onclick="toast('Salvo','ok')">Salvar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /.content -->
-</main>
-
-<!-- TOASTS -->
-<div class="toasts" id="toasts"></div>
-
-<!-- ═══ SCRIPT ═══ -->
 <script>
-'use strict';
+const TUNNEL_API = 'https://printer-foot-beauty-spectrum.trycloudflare.com';
+const savedApi = localStorage.getItem('svoltix_api');
+const API = savedApi && !/localhost|127\.0\.0\.1|\[::1\]|::1/i.test(savedApi) ? savedApi : TUNNEL_API;
+localStorage.setItem('svoltix_api', API);
+let devices = [];
+let historyRows = [];
+let charts = {};
+let groupNames = {};
+let selectedDeviceId = localStorage.getItem('svoltix_device') || '';
+let selectedCfgDevice = '';
 
-/* ─── ESTADO ─── */
-let API            = localStorage.getItem('svoltix_api') || 'https://evidence-spider-inclusive-venice.trycloudflare.com';
-let updateMs       = (parseInt(localStorage.getItem('svoltix_interval'), 10) || 5) * 1000;
-let nomesGrupos    = {};
-let editandoId     = null;
-let gruposCol      = new Set();
-let intervalId     = null;
-let dadosHistorico = [];
-
-let chartPt   = null;
-let chartVafp = null;
-let chartHzTc = null;
-
-/* ─── AUTH ─── */
-if (localStorage.getItem('logado') !== 'sim') location.href = 'index.html';
-
-const usuario = localStorage.getItem('usuario') || 'admin';
-document.getElementById('userNameEl').textContent = usuario;
-document.getElementById('userAv').textContent = usuario.slice(0,2).toUpperCase();
-document.getElementById('cfgApiUrl').value  = API;
-document.getElementById('cfgUser').value    = usuario;
-
-/* ─── TOAST ─── */
-const TOAST_ICONS = {
-  ok:  `<svg class="toast-ico" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.6"/><polyline points="9 12 11 14 15 10" stroke="currentColor" stroke-width="1.6"/></svg>`,
-  err: `<svg class="toast-ico" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.6"/><line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="1.6"/><line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="1.6"/></svg>`,
-  inf: `<svg class="toast-ico" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.6"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="16" r="1" fill="currentColor"/></svg>`
+const icons = {
+  home: '<path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  clock: '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  chart: '<path d="M4 19V5M4 19h17M8 16V9M13 16V6M18 16v-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  search: '<circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  card: '<rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18" stroke="currentColor" stroke-width="1.8"/>',
+  gear: '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.06a1.7 1.7 0 0 0-1-.54 1.7 1.7 0 0 0-1.87.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.06a1.7 1.7 0 0 0 .54-1 1.7 1.7 0 0 0-.34-1.87l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.06a1.7 1.7 0 0 0 1 .54 1.7 1.7 0 0 0 1.87-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 9c.22.33.42.66.6 1H20a2 2 0 1 1 0 4h-.06c-.15.36-.33.7-.54 1Z" stroke="currentColor" stroke-width="1.3"/>',
+  bell: '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 10-12h-7l1-8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 3v4M8 3v4M3 11h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
 };
-function toast(msg, tipo = 'inf') {
-  const t = document.createElement('div');
-  t.className = `toast ${tipo}`;
-  t.innerHTML = `${TOAST_ICONS[tipo]||TOAST_ICONS.inf}<span>${msg}</span>`;
-  document.getElementById('toasts').appendChild(t);
-  setTimeout(() => t.remove(), 3200);
+const navItems = [
+  ['dashboards','Meus Dashboards','chart'],
+  ['home','Home','home'],
+  ['monitoramento','Monitoramento','clock'],
+  ['historico','Historico','chart'],
+  ['analise','Analise','search'],
+  ['faturamento','Faturamento','card'],
+  ['geracao','Minha Geracao','gear'],
+  ['relatorios','Relatorios','file'],
+  ['alertas','Alertas','bell','90'],
+  ['downloads','Downloads','download'],
+  ['config','Configuracoes','gear']
+];
+function svg(name){ return `<svg viewBox="0 0 24 24" fill="none">${icons[name]}</svg>`; }
+function money(v){ return Number(v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
+function num(v, d=0){ return Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits:d, minimumFractionDigits:d }); }
+function kwhFromW(w, hours=24){ return Math.max(0, Number(w || 0) * hours / 1000); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function brDate(date=today()){ const [y,m,d] = date.slice(0,10).split('-'); return `${d}/${m}/${y}`; }
+function deviceId(d){ return d.device || d.dispositivo || d.id || 'SVX-EQUIPAMENTO'; }
+function deviceName(d){
+  const id = deviceId(d);
+  return groupNames[id] || d.nome_grupo || id;
 }
-
-/* ─── NAVEGAÇÃO ─── */
-const VIEWS = { dashboard: 'Dashboard', historico: 'Histórico', config: 'Configurações' };
-
-function ir(tab) {
+function deviceList(){
+  return devices.length ? devices : demoDevices();
+}
+function ensureSelectedDevice(){
+  const list = deviceList();
+  if (!list.length) return '';
+  if (!selectedDeviceId || !list.some(d => deviceId(d) === selectedDeviceId)) {
+    selectedDeviceId = deviceId(list[0]);
+    localStorage.setItem('svoltix_device', selectedDeviceId);
+  }
+  return selectedDeviceId;
+}
+function currentDevice(){
+  const id = ensureSelectedDevice();
+  return deviceList().find(d => deviceId(d) === id) || deviceList()[0] || {};
+}
+function setSelectedDevice(id, nextView = null){
+  if (!id) return;
+  selectedDeviceId = id;
+  selectedCfgDevice = id;
+  localStorage.setItem('svoltix_device', id);
+  renderAll();
+  if (nextView) go(nextView);
+  else syncSelectionControls();
+}
+function syncSelectionControls(){
+  const id = ensureSelectedDevice();
+  ['areaSelect','deviceSelect','histDevice','anaDevice'].forEach(selId => {
+    const el = document.getElementById(selId);
+    if (el && [...el.options].some(o => o.value === id)) el.value = id;
+  });
+}
+function statusOf(d){
+  if (!d.created_at) return 'offline';
+  const age = (Date.now() - new Date(d.created_at).getTime()) / 1000;
+  if (age < 35) return 'online';
+  if (age < 90) return 'warning';
+  return 'offline';
+}
+function statusLabel(s){ return s === 'online' ? 'Online' : s === 'warning' ? 'Atencao' : 'Offline'; }
+function totals(){
+  const selected = currentDevice();
+  const source = selected && deviceId(selected) ? [selected] : deviceList();
+  const totalW = source.reduce((s,d)=>s + Number(d.pt || 0), 0);
+  const todayKwh = kwhFromW(totalW, 1);
+  const monthKwh = kwhFromW(totalW, 24 * 30);
+  const fp = source.length ? source.reduce((s,d)=>s + Number(d.fpt || 0),0) / source.length : 0;
+  const hz = source.length ? source.reduce((s,d)=>s + Number(d.hz || 0),0) / source.length : 0;
+  const tc = source.length ? source.reduce((s,d)=>s + Number(d.tc || 0),0) / source.length : 0;
+  return { totalW, todayKwh, monthKwh, forecast: monthKwh * 1.12, fp, hz, tc };
+}
+function renderAreaSelect(){
+  const select = document.getElementById('areaSelect');
+  if (!select) return;
+  const selected = ensureSelectedDevice();
+  select.innerHTML = deviceList().map(d => `<option value="${deviceId(d)}">${deviceName(d)}</option>`).join('');
+  if ([...select.options].some(o => o.value === selected)) select.value = selected;
+}
+function pageTitle(icon, title, extra=''){
+  return `<div class="page-hd"><div class="title-row"><span class="title-ico">${svg(icon)}</span><h1>${title}</h1>${extra}</div></div>`;
+}
+function notice(text){
+  return `<div class="notice">${svg('clock')}<span>${text}</span><button class="btn icon ghost" style="margin-left:auto;height:24px;width:24px" onclick="this.parentElement.remove()">x</button></div>`;
+}
+function panel(title, body, extra=''){
+  return `<section class="panel"><div class="panel-hd"><span>${title}</span>${extra}</div><div class="panel-body">${body}</div></section>`;
+}
+function renderNav(){
+  document.getElementById('nav').innerHTML = navItems.map(([id,label,icon,badge]) => `
+    <div class="nav-item ${id==='dashboards'?'active':''}" id="tab-${id}" onclick="go('${id}')">
+      ${svg(icon)}<span>${label}</span>${badge ? `<span class="nav-badge">${badge}</span>` : ''}
+    </div>`).join('');
+}
+function go(id){
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
-  document.getElementById('view-' + tab).classList.add('active');
-  document.getElementById('tab-' + tab).classList.add('active');
-  document.getElementById('breadcrumbLabel').textContent = VIEWS[tab] || tab;
-
-  fecharSidebar();
-
-  if (tab === 'historico') carregarDispositivosSelect();
+  document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
+  document.getElementById(`view-${id}`).classList.add('active');
+  document.getElementById(`tab-${id}`).classList.add('active');
+  document.getElementById('breadcrumb').textContent = navItems.find(i => i[0] === id)?.[1] || id;
+  closeSidebar();
+  setTimeout(() => resizeCharts(), 80);
 }
-
-/* ─── SIDEBAR MOBILE ─── */
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('overlay').classList.toggle('open');
+function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
+function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); }
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el.t);
+  el.t = setTimeout(()=>el.classList.remove('show'), 2200);
 }
-function fecharSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('overlay').classList.remove('open');
-}
-
-/* ─── CONFIGURAÇÕES ─── */
-function cfgIr(painel, el) {
-  document.querySelectorAll('.cfg-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.cfg-item').forEach(i => i.classList.remove('active'));
-  document.getElementById('cfg-' + painel).classList.add('active');
-  el.classList.add('active');
-}
-
-function salvarCfgApi() {
-  const url = document.getElementById('cfgApiUrl').value.trim();
-  const iv  = parseInt(document.getElementById('cfgInterval').value, 10);
-  if (url) { API = url; localStorage.setItem('svoltix_api', url); }
-  if (iv >= 2) {
-    localStorage.setItem('svoltix_interval', iv);
-    clearInterval(intervalId);
-    updateMs = iv * 1000;
-    intervalId = setInterval(atualizar, updateMs);
-  }
-  toast('Configurações salvas', 'ok');
-}
-
-/* ─── SAIR ─── */
-function sair() {
-  localStorage.clear();
-  location.href = 'index.html';
-}
-
-/* ─── GRUPOS ─── */
-async function carregarNomesGrupos() {
-  try {
-    const r = await fetch(`${API}/grupos`);
-    const d = await r.json();
-    nomesGrupos = {};
-    d.forEach(i => { nomesGrupos[i.dispositivo] = i.nome_grupo; });
-  } catch { /* silencioso */ }
-}
-
-function toggleGrupo(id) {
+function destroyChart(id){ if (charts[id]) { charts[id].destroy(); charts[id] = null; } }
+function resizeCharts(){ Object.values(charts).forEach(c => c && c.resize()); }
+function makeLine(id, labels, datasets, yTitle=''){
+  destroyChart(id);
   const el = document.getElementById(id);
-  if (!el) return;
-  gruposCol.has(id) ? gruposCol.delete(id) : gruposCol.add(id);
-  el.classList.toggle('collapsed', gruposCol.has(id));
-}
-
-function editarNome(disp, gid) {
-  editandoId = gid;
-  const nomeAtual = nomesGrupos[disp] || disp;
-  const span = document.getElementById('nome-' + gid);
-  if (!span) return;
-  const inp = document.createElement('input');
-  inp.type = 'text'; inp.className = 'grupo-nome-input'; inp.value = nomeAtual;
-  inp.onclick = e => e.stopPropagation();
-  inp.onkeydown = e => {
-    if (e.key === 'Enter') inp.blur();
-    if (e.key === 'Escape') { inp.value = nomeAtual; inp.blur(); }
-  };
-  inp.onblur = () => salvarNome(disp, gid, inp.value.trim() || disp);
-  span.replaceWith(inp); inp.focus(); inp.select();
-}
-
-async function salvarNome(disp, gid, nome) {
-  editandoId = null;
-  nomesGrupos[disp] = nome;
-  const span = document.createElement('span');
-  span.id = 'nome-' + gid; span.className = 'grupo-nome'; span.textContent = nome;
-  const inp = document.getElementById('nome-' + gid);
-  if (inp) inp.replaceWith(span);
-  try {
-    await fetch(`${API}/grupos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dispositivo: disp, nome_grupo: nome })
-    });
-    toast('Nome salvo', 'ok');
-  } catch { toast('Falha ao salvar nome', 'err'); }
-}
-
-/* ─── DASHBOARD ─── */
-async function atualizar() {
-  if (editandoId) return;
-
-  try {
-    const res   = await fetch(`${API}/api/dashboard`);
-    const dados = await res.json();
-
-    /* dedup por device */
-    const byDev = {};
-    dados.forEach(d => { if (!byDev[d.device]) byDev[d.device] = d; });
-    const devs = Object.values(byDev);
-
-    /* KPIs */
-    const agora = Date.now();
-    let totalPT = 0, somaFP = 0, somaHz = 0, somaTC = 0, cntFP = 0, online = 0, offline = 0;
-
-    devs.forEach(d => {
-      const seg = (agora - new Date(d.created_at)) / 1000;
-      if (seg < 30) online++; else offline++;
-      totalPT += +d.pt || 0;
-      if (d.fpt) { somaFP += +d.fpt; cntFP++; }
-      somaHz += +d.hz || 0;
-      somaTC += +d.tc || 0;
-    });
-
-    const n = devs.length || 1;
-    document.getElementById('kpiPT').innerHTML      = `${totalPT.toFixed(0)}<span class="kpi-unit">W</span>`;
-    document.getElementById('kpiPTsub').textContent = `${online} dispositivo(s) ativos`;
-    document.getElementById('kpiFP').textContent    = cntFP ? (somaFP/cntFP).toFixed(3) : '—';
-    document.getElementById('kpiHz').innerHTML      = `${(somaHz/n).toFixed(1)}<span class="kpi-unit">Hz</span>`;
-    document.getElementById('kpiOnline').textContent  = online;
-    document.getElementById('kpiOffline').textContent = offline;
-    document.getElementById('kpiTotSub').textContent  = `de ${devs.length} dispositivos`;
-    document.getElementById('kpiTC').innerHTML      = `${(somaTC/n).toFixed(1)}<span class="kpi-unit">°C</span>`;
-
-    /* FP colorido */
-    const fpVal = cntFP ? somaFP/cntFP : 0;
-    document.getElementById('kpiFP').style.color = fpVal >= 0.92 ? 'var(--online)' : fpVal > 0 ? 'var(--warning)' : 'var(--text)';
-
-    /* Equipamentos */
-    if (!devs.length) {
-      document.getElementById('equipamentos').innerHTML = '<div class="empty-state">Nenhum equipamento encontrado.</div>';
-      return;
-    }
-
-    let html = '';
-    devs.forEach(item => {
-      const seg = (agora - new Date(item.created_at)) / 1000;
-      const cls = seg < 30 ? 'online' : seg < 60 ? 'warning' : 'offline';
-      const lbl = cls === 'online' ? 'Online' : cls === 'warning' ? 'Atenção' : 'Offline';
-      const gid = 'g-' + item.device.replace(/[^a-zA-Z0-9]/g,'');
-      const dEsc = item.device.replace(/'/g,"\\'");
-      const col  = gruposCol.has(gid) ? ' collapsed' : '';
-
-      html += `
-      <div class="grupo${col}" id="${gid}">
-        <div class="grupo-header" onclick="toggleGrupo('${gid}')">
-          <div class="grupo-header-left">
-            <svg class="chevron" viewBox="0 0 24 24" fill="none"><path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <svg class="grupo-icon" viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3L21 9.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V9.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-            <span class="grupo-nome" id="nome-${gid}">${nomesGrupos[item.device]||item.device}</span>
-            <button class="grupo-edit-btn" onclick="event.stopPropagation();editarNome('${dEsc}','${gid}')" title="Renomear">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
-          </div>
-          <span class="grupo-status-badge ${cls}">${lbl}</span>
-        </div>
-        <div class="grupo-body">
-          <div class="equipamento">
-            <div class="eq-left">
-              <div class="eq-dot ${cls}"></div>
-              <div>
-                <div class="eq-name">${item.device}</div>
-                <div class="eq-meta">VA ${(+item.va||0).toFixed(1)}V · IA ${(+item.ia||0).toFixed(1)}A · FP ${(+item.fpt||0).toFixed(3)}</div>
-              </div>
-            </div>
-            <div>
-              <div class="eq-power">${(+item.pt||0).toFixed(0)} <span style="font-size:12px;color:var(--text-muted)">W</span></div>
-              <div class="eq-power-sub">
-                VB ${(+item.vb||0).toFixed(1)}V · VC ${(+item.vc||0).toFixed(1)}V<br>
-                IB ${(+item.ib||0).toFixed(1)}A · IC ${(+item.ic||0).toFixed(1)}A<br>
-                Hz ${(+item.hz||0).toFixed(1)} · ${(+item.tc||0).toFixed(1)}°C
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>`;
-    });
-
-    document.getElementById('equipamentos').innerHTML = html;
-
-  } catch {
-    document.getElementById('equipamentos').innerHTML = '<div class="err-state">Erro ao conectar com o servidor.</div>';
-  }
-}
-
-/* ─── HISTÓRICO ─── */
-async function carregarDispositivosSelect() {
-  try {
-    const res  = await fetch(`${API}/api/dispositivos`);
-    const devs = await res.json();
-    const sel  = document.getElementById('selectDevice');
-    sel.innerHTML = '<option value="">Selecionar dispositivo…</option>';
-    devs.forEach(d => {
-      const o = document.createElement('option');
-      o.value = d.device; o.textContent = nomesGrupos[d.device] || d.device;
-      sel.appendChild(o);
-    });
-  } catch { toast('Falha ao carregar dispositivos','err'); }
-}
-
-async function carregarHistorico() {
-  const device  = document.getElementById('selectDevice').value;
-  const periodo = document.getElementById('selectPeriodo').value;
-  const empty   = document.getElementById('historicoEmpty');
-  const errEl   = document.getElementById('historicoErr');
-  const charts  = document.getElementById('historicoCharts');
-
-  empty.style.display  = 'none';
-  errEl.style.display  = 'none';
-  charts.style.display = 'none';
-  document.getElementById('btnDownload').style.display = 'none';
-
-  if (!device) { empty.style.display = 'block'; empty.textContent = 'Selecione um dispositivo.'; return; }
-
-  empty.style.display = 'block'; empty.textContent = 'Carregando…';
-
-  try {
-    const res  = await fetch(`${API}/api/historico/${encodeURIComponent(device)}?periodo=${encodeURIComponent(periodo)}`);
-
-    const raw  = await res.json();
-
-    if (!raw || !raw.length) {
-      empty.textContent = 'Sem dados para este dispositivo.';
-      return;
-    }
-
-    /* filtro por período */
-    const agora = Date.now();
-    const limites = { '1h': 3600e3, '6h': 21600e3, '24h': 86400e3, '7d': 604800e3 };
-    const lim = limites[periodo] || 86400e3;
-    dadosHistorico = raw.filter(r => agora - new Date(r.created_at).getTime() <= lim);
-
-    if (!dadosHistorico.length) dadosHistorico = raw; /* fallback: mostra tudo */
-
-    empty.style.display = 'none';
-    charts.style.display = 'block';
-    document.getElementById('btnDownload').style.display = 'flex';
-
-    destruirGraficos();
-    atualizarGraficos(dadosHistorico);
-
-  } catch {
-    empty.style.display = 'none';
-    errEl.style.display = 'block';
-    toast('Erro ao buscar histórico','err');
-  }
-}
-
-/* ─── GRÁFICOS ─── */
-function safeN(v) {
-  const n = Number(v);
-  if(!isFinite(n)) return 0;
-  return n;
-}
-
-function safeNonNegative(v) {
-  const n = Number(v);
-  if(!isFinite(n)) return 0;
-  if(n < 0) return 0;
-  return n;
-}
-
-// FP deve estar no intervalo [0..1]
-function safeFp(v) {
-  const n = Number(v);
-  if(!isFinite(n)) return 0;
-  if(n < 0) return 0;
-  if(n > 1) return 1;
-  return n;
-}
-
-
-function fmtLabel(ts) {
-  if (!ts) return '';
-  const d = new Date(ts);
-  return isNaN(d) ? '' : d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
-}
-
-function fmtFp(v) {
-  // exibir no formato x,xx com vírgula em pt-BR
-  return Number(safeFp(v)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-
-function CHART_OPTS({ yMin = null, yMax = null, xMaxTicks = 10 } = {}) {
-  const yAxis = {
-    beginAtZero: false,
-    ticks: { color: '#6e88aa', font: { size: 10 } },
-    grid: { color: 'rgba(30,48,80,.6)' }
-  };
-  if (typeof yMin === 'number') yAxis.min = yMin;
-  if (typeof yMax === 'number') yAxis.max = yMax;
-
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { labels: { color: '#6e88aa', font: { size: 11 } } },
-      tooltip: { backgroundColor: 'rgba(16,28,48,.95)', borderColor: '#1e3050', borderWidth: 1 }
-    },
-    scales: {
-      x: {
-        type: 'time',
-        time: {
-          unit: 'minute',
-          tooltipFormat: 'HH:mm',
-          displayFormats: { minute: 'HH:mm' }
-        },
-        ticks: { color: '#6e88aa', maxTicksLimit: xMaxTicks, font: { size: 10 } },
-        grid: { color: 'rgba(30,48,80,.6)' }
-      },
-      y: yAxis
-    }
-  };
-}
-
-
-function ajustarTicksY(dados, campos) {
-  // calcula min/max reais (clamp para evitar “sujar” com valores inválidos)
-  let vals = [];
-  for (const r of dados) {
-    for (const c of campos) {
-      const n = Number(r?.[c]);
-      if (isFinite(n)) vals.push(n);
-    }
-  }
-  if (!vals.length) return { yMin: null, yMax: null };
-
-  let yMin = Math.min(...vals);
-  let yMax = Math.max(...vals);
-
-  // expandir um pouco para melhor visualização
-  const pad = (yMax - yMin) * 0.12 || 1;
-  yMin = yMin - pad;
-  yMax = yMax + pad;
-
-  return { yMin, yMax };
-}
-
-function ajustarTicksX(dados, periodo) {
-  // maxTicksLimit no Chart.js é que controla a “densidade” da grade e labels
-  const map = {
-    '1h': 6,
-    '6h': 8,
-    '24h': 12,
-    '7d': 14
-  };
-  return map[periodo] ?? 10;
-}
-
-function atualizarGraficos(dados) {
-  const showVA = document.getElementById('chkVA')?.checked;
-  const showPA = document.getElementById('chkPA')?.checked;
-  const showFP = document.getElementById('chkFP')?.checked;
-  const showHZ = document.getElementById('chkHZ')?.checked;
-  const showTC = document.getElementById('chkTC')?.checked;
-
-  const periodo = document.getElementById('selectPeriodo')?.value;
-
-  const series = dados.slice().reverse();
-
-  // eixo X deve ser tempo real (Chart.js time scale)
-  const points = (campo) => series
-    .map(r => ({ x: new Date(r.created_at), y: safeNonNegative(r[campo]) }))
-    .filter(p => p.x instanceof Date && !isNaN(p.x));
-
-  const pointsRaw = (campo) => series
-    .map(r => ({ x: new Date(r.created_at), y: safeN(r[campo]) }))
-    .filter(p => p.x instanceof Date && !isNaN(p.x));
-
-  const pointsFp = (campo) => series
-    .map(r => ({ x: new Date(r.created_at), y: safeFp(r[campo]) }))
-    .filter(p => p.x instanceof Date && !isNaN(p.x));
-
-
-
-  const meta = series.at(-1);
-
-  /* META INFO */
-  if (meta) {
-    document.getElementById('metaPt').textContent =
-      `VA ${safeN(meta.va).toFixed(1)}V · VB ${safeN(meta.vb).toFixed(1)}V · VC ${safeN(meta.vc).toFixed(1)}V`;
-
-    document.getElementById('metaVafp').textContent =
-      `PT ${safeN(meta.pt).toFixed(0)}W · FP ${fmtFp(meta.fpt)}`;
-
-    document.getElementById('metaHzTc').textContent =
-      `Hz ${safeN(meta.hz).toFixed(2)} · ${safeN(meta.tc).toFixed(1)}°C`;
-  }
-
-
-  /* TENSÃO */
-  const wPt = document.getElementById('wrapChartPt');
-  wPt.style.display = showVA ? 'block' : 'none';
-  if (showVA) {
-    const ctx = document.getElementById('chartPt');
-
-    const { yMin, yMax } = ajustarTicksY(series, ['va','vb','vc']);
-    const maxTicks = ajustarTicksX(series, periodo);
-
-    chartPt = new Chart(ctx, {
-      type: 'line',
-      data: {
-        datasets: [
-          { label:'VA (V)', data: points('va'), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.08)', tension:.25, pointRadius:1.5 },
-          { label:'VB (V)', data: points('vb'), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.08)', tension:.25, pointRadius:1.5 },
-          { label:'VC (V)', data: points('vc'), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.08)', tension:.25, pointRadius:1.5 }
-        ]
-      },
-
-      options: {
-        ...CHART_OPTS({ yMin, yMax }),
-        scales: {
-          ...CHART_OPTS({ yMin, yMax }).scales,
-          x: {
-            ...CHART_OPTS({ yMin, yMax }).scales.x,
-            ticks: {
-              ...CHART_OPTS({ yMin, yMax }).scales.x.ticks,
-              maxTicksLimit: maxTicks
-            }
-          }
-        }
-      }
-    });
-  }
-
-
-  /* POTÊNCIA + FP */
-  const wVafp = document.getElementById('wrapChartVafp');
-  wVafp.style.display = (showPA || showFP) ? 'block' : 'none';
-  if (showPA || showFP) {
-    const ds = [];
-    if (showPA) ds.push(
-      { label:'PA (W)', data: points('pa'), borderColor:'#5eead4', backgroundColor:'rgba(94,234,212,.07)', tension:.25, pointRadius:1.5 },
-      { label:'PB (W)', data: points('pb'), borderColor:'#fbbf24', backgroundColor:'rgba(251,191,36,.07)', tension:.25, pointRadius:1.5 },
-      { label:'PC (W)', data: points('pc'), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.07)', tension:.25, pointRadius:1.5 }
-    );
-    if (showFP) ds.push(
-      { label:'FPA', data: pointsFp('fpa'), borderColor:'#60a5fa', backgroundColor:'rgba(96,165,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
-      { label:'FPB', data: pointsFp('fpb'), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' },
-      { label:'FPC', data: pointsFp('fpc'), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.06)', tension:.25, pointRadius:1.5, yAxisID:'yFP' }
-    );
-
-
-    const maxTicks = ajustarTicksX(series, periodo);
-
-    const { yMin, yMax } = ajustarTicksY(series, showPA ? ['pa','pb','pc'] : ['pt']);
-    const opts = {
-      ...CHART_OPTS({ yMin, yMax }),
+  if (!el || !window.Chart) return;
+  charts[id] = new Chart(el, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: { legend: { labels: { color:'#445a72' } } },
       scales: {
-        ...CHART_OPTS({ yMin, yMax }).scales,
-        x: {
-          ...CHART_OPTS({ yMin, yMax }).scales.x,
-          ticks: {
-            ...CHART_OPTS({ yMin, yMax }).scales.x.ticks,
-            maxTicksLimit: maxTicks
-          }
-        }
+        x: { grid: { color:'#e1e9f2' }, ticks:{ color:'#5d6f86', maxTicksLimit: 9 } },
+        y: { beginAtZero:true, title:{ display:!!yTitle, text:yTitle }, grid: { color:'#e1e9f2' }, ticks:{ color:'#5d6f86' } }
       }
-    };
-
-    if (showPA && showFP) {
-      opts.scales.yFP = { position:'right', min:0, max:1, ticks:{ color:'#6e88aa', font:{size:10} }, grid:{ drawOnChartArea:false } };
     }
-
-    chartVafp = new Chart(document.getElementById('chartVafp'), { type:'line', data:{ datasets:ds }, options:opts });
-
-
-  }
-
-  /* Hz / TC */
-  const wHzTc = document.getElementById('wrapChartHzTc');
-  wHzTc.style.display = (showHZ || showTC) ? 'block' : 'none';
-  if (showHZ || showTC) {
-    const ds = [];
-    if (showHZ) ds.push({ label:'Hz', data: pointsRaw('hz'), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,.08)', tension:.25, pointRadius:1.5 });
-    if (showTC) ds.push({ label:'°C', data: pointsRaw('tc'), borderColor:'#f87171', backgroundColor:'rgba(248,113,113,.08)', tension:.25, pointRadius:1.5 });
-
-
-    const maxTicks = ajustarTicksX(series, periodo);
-    const campos = [];
-    if (showHZ) campos.push('hz');
-    if (showTC) campos.push('tc');
-
-    const { yMin, yMax } = ajustarTicksY(series, campos);
-
-    const opts = {
-      ...CHART_OPTS({ yMin, yMax }),
-      scales: {
-        ...CHART_OPTS({ yMin, yMax }).scales,
-        x: {
-          ...CHART_OPTS({ yMin, yMax }).scales.x,
-          ticks: {
-            ...CHART_OPTS({ yMin, yMax }).scales.x.ticks,
-            maxTicksLimit: maxTicks
-          }
-        }
-      }
-    };
-
-    chartHzTc = new Chart(document.getElementById('chartHzTc'), { type:'line', data:{ datasets:ds }, options:opts });
-
-
+  });
+}
+function makeGauge(id, value, max=10){
+  destroyChart(id);
+  const el = document.getElementById(id);
+  if (!el || !window.Chart) return;
+  charts[id] = new Chart(el, {
+    type: 'doughnut',
+    data: { datasets: [{ data: [Math.min(value,max), Math.max(max-value,0)], backgroundColor: ['#23628f','#e2ebf3'], borderWidth: 0, circumference: 220, rotation: 250 }] },
+    options: { responsive:true, maintainAspectRatio:false, cutout:'58%', plugins:{ legend:{ display:false }, tooltip:{ enabled:false } } }
+  });
+}
+function fakeSeries(field='pt', len=14){
+  const base = currentDevice() || {};
+  return Array.from({length: len}, (_,i) => {
+    const val = Number(base[field] || base.pt || 0);
+    return Math.max(0, val * (.65 + Math.sin(i/2) * .18 + (i % 3) * .04));
+  });
+}
+function controlsHtml(){
+  const options = devices.map(d => `<option value="${deviceId(d)}">${deviceName(d)}</option>`).join('');
+  return `<div class="filters">
+    <div class="field"><label class="label">Grandeza</label><select class="select" id="metricSelect"><option value="pt">Potencia Ativa</option><option value="va">Tensao A</option><option value="ia">Corrente A</option><option value="fpt">Fator de Potencia</option><option value="hz">Frequencia</option></select></div>
+    <div class="field"><label class="label">Medidor</label><select class="select" id="deviceSelect" onchange="setSelectedDevice(this.value)">${options || '<option>SVX-EQUIPAMENTO</option>'}</select></div>
+    <div class="field sm"><label class="label">Janela de dados (s)</label><input class="input" id="monitorWindow" type="number" min="5" max="86400" step="5" value="${localStorage.getItem('svoltix_window_seconds') || 30}"></div>
+    <button class="btn" onclick="drawMonitor()">${svg('search')}Aplicar</button>
+  </div>`;
+}
+function renderDashboards(){
+  const rows = (devices.length ? devices : demoDevices()).map((d, i) => {
+    const mensal = kwhFromW(d.pt || (i+1)*75, 24*30);
+    return `<tr class="dashboard-row" onclick="setSelectedDevice('${deviceId(d).replace(/'/g, "\\'")}','home')">
+      <td>${deviceName(d)}${groupNames[deviceId(d)] ? `<span class="id-note">ID: ${deviceId(d)}</span>` : ''}</td>
+      <td class="power">${svg('bolt')} ${num(kwhFromW(d.pt,1),0)} kWh</td>
+      <td class="power">${svg('bolt')} ${num(mensal,0)} kWh</td>
+      <td style="text-align:right">...</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('view-dashboards').innerHTML = `
+    <div class="page-hd">
+      <div class="title-row"><h1 style="font-size:24px;color:#142b44">Meus Dashboards</h1><div class="seg"><button class="active">Todos</button><button>Energia</button></div></div>
+      <div class="toolbar"><input class="input" style="width:210px" placeholder="Buscar dashboard"><button class="btn icon">${svg('chart')}</button><button class="btn icon ghost">${svg('file')}</button></div>
+    </div>
+    <div class="panel table-wrap"><table><thead><tr><th>Dashboard</th><th>Consumo Hoje</th><th>Consumo Mensal</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderHome(){
+  const t = totals();
+  const selected = currentDevice();
+  const selectedName = deviceName(selected);
+  document.getElementById('view-home').innerHTML = `
+    <div class="toolbar" style="margin-bottom:14px">
+      <button class="btn ghost">${svg('home')} ${selectedName}</button>
+      <div class="seg"><button>Custo</button><button class="active">Consumo</button></div>
+      <div class="seg"><button class="active">Hoje</button><button>Mes</button><button>Ano</button></div>
+      <span style="flex:1"></span><button class="btn">Personalizar ${svg('gear')}</button>
+    </div>
+    <div class="cards grid-4" style="margin-bottom:12px">
+      ${kpi('bolt','Demanda agora','Dados insuficientes','Demanda maxima calculada')}
+      ${kpi('clock','Consumo hoje',`${num(t.todayKwh,0)} kWh`,'Clique para visualizar consumo')}
+      ${kpi('card','Consumo mensal ate agora',`${num(t.monthKwh,0)} kWh`,'Clique para visualizar sua fatura')}
+      ${kpi('chart','Previsao de consumo mensal',`${num(t.forecast,0)} kWh`,'Baseado no historico recente')}
+    </div>
+    ${panel('Demanda - hoje', '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div>')}
+    <div class="cards grid-3" style="margin-top:12px">
+      ${panel('Eficiencia', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b style="color:#fbbf24;font-size:20px">0 kWh</b><span style="color:#fbbf24">Consumo previsto nesse horario.</span></div>')}
+      ${panel('Metricas de consumo', `<div class="metric-list"><div class="metric-line"><span>Media diaria</span><b>${num(t.monthKwh/30,0)} kWh</b></div><div class="metric-line"><span>Maior consumo</span><b>${num(Math.max(t.todayKwh,60),0)} kWh</b></div><div class="metric-line"><span>Menor consumo</span><b>0 kWh</b></div></div>`)}
+      ${panel('Alertas', `<div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>VER TODOS 3</span></div><div class="alert-body"><b>Medidor offline</b><p>Nao estamos recebendo dados de consumo do medidor ${selectedName}.</p></div><div class="alert-foot"><span>08 de junho de 2026</span><span>3/3</span></div></div>`)}
+    </div>`;
+  drawHome();
+}
+function kpi(icon,label,value,sub){
+  return `<div class="kpi"><div class="ico">${svg(icon)}</div><div class="body"><div class="label">${label}</div><strong>${value}</strong><small>${sub}</small></div></div>`;
+}
+function renderMonitor(){
+  const selected = currentDevice();
+  document.getElementById('view-monitoramento').innerHTML = `
+    ${pageTitle('clock','Monitoramento',`<span class="pill">Energia</span><span class="pill">${deviceName(selected)}</span>`)}
+    ${controlsHtml()}
+    <div style="height:18px"></div>
+    ${panel('', '<div class="chart-box tall"><canvas id="monitorLine"></canvas></div>')}
+    <div class="gauge-grid" style="margin-top:20px">
+      ${['Total','Fase A','Fase B','Fase C'].map((n,i)=>`<div class="gauge"><b>${n}</b><div style="height:190px"><canvas id="gauge${i}"></canvas></div><div class="power" id="gaugeVal${i}">${num((selected?.pt||0)/1000,2)} kW</div></div>`).join('')}
+    </div>`;
+  drawMonitor();
+}
+function renderHistorico(){
+  document.getElementById('view-historico').innerHTML = `
+    ${pageTitle('chart','Historico','<span class="pill">Energia</span>')}
+    ${notice('Visualize o historico de grandezas e consumo para energia. Selecione um periodo e clique em buscar para iniciar sua pesquisa.')}
+    <div class="form-grid">
+      <div class="field"><label class="label">Grandeza</label><select class="select" id="histMetric"><option value="pt">Potencia Ativa</option><option value="va">Tensao A</option><option value="ia">Corrente A</option><option value="fpt">Fator de Potencia</option></select></div>
+      <div class="field"><label class="label">Inicio</label><input class="input" type="date" id="histStart" value="${today()}"></div>
+      <div class="field"><label class="label">Fim</label><input class="input" type="date" id="histEnd" value="${today()}"></div>
+      <div class="field"><label class="label">Medidor</label><select class="select" id="histDevice" onchange="setSelectedDevice(this.value)">${deviceOptions()}</select></div>
+      <div class="field sm"><label class="label">Janela (s)</label><input class="input" type="number" id="histWindow" min="5" max="86400" step="5" value="${localStorage.getItem('svoltix_window_seconds') || 300}"></div>
+      <button class="btn" onclick="loadHistory()">${svg('search')}</button>
+    </div>
+    <div id="histOutput" class="empty">Clique na lupa para gerar o grafico a partir dos parametros</div>`;
+}
+function renderAnalise(){
+  document.getElementById('view-analise').innerHTML = `
+    ${pageTitle('search','Analise','<span class="pill">Energia</span>')}
+    ${notice('Explore dados detalhados de consumo e grandezas para energia. Selecione um periodo e clique em analisar para gerar sua analise.')}
+    <div class="tabs"><div class="tab active">Analise Por Medidores</div><div class="tab">Comparar Periodo</div></div>
+    <div class="form-grid">
+      <div class="field"><label class="label">Grandeza</label><select class="select" id="anaMetric"><option value="pt">Consumo</option><option value="va">Tensao</option></select></div>
+      <div class="field"><label class="label">Medidores</label><select class="select" id="anaDevice" onchange="setSelectedDevice(this.value)">${deviceOptions()}</select></div>
+      <div class="field"><label class="label">Dia inicial</label><input class="input" type="date" value="${today()}"></div>
+      <div class="field"><label class="label">Dia final</label><input class="input" type="date" value="${today()}"></div>
+      <button class="btn" onclick="drawAnalysis()">${svg('search')}Analisar</button>
+      <button class="btn" onclick="exportCSV()">${svg('download')}Baixar CSV</button>
+    </div>
+    <div id="analysisOutput" class="empty">Clique na lupa para gerar sua analise a partir dos parametros</div>`;
+}
+function renderFaturamento(){
+  const months = ['janeiro','fevereiro','marco','abril','maio','junho','julho'];
+  const rows = months.map((m,i) => {
+    const cons = i > 4 ? totals().monthKwh * (i === 5 ? 1.4 : 1) : 0;
+    return `<tr><td>${m}/2026</td><td><input value="0${Math.max(1,i+1)}/01/2026"></td><td><input value="01/${String(i+1).padStart(2,'0')}/2026"></td><td><button class="btn icon">${svg('calendar')}</button></td><td>${num(cons,2)} kWh</td><td>${money(cons * 1.23)}</td><td><button class="btn icon">${svg('search')}</button></td></tr>`;
+  }).join('');
+  document.getElementById('view-faturamento').innerHTML = `
+    ${pageTitle('card','Faturamento')}
+    <div class="toolbar" style="margin-bottom:14px"><button class="btn">Ano</button><input class="input" style="width:120px" value="2026"><button class="btn icon">${svg('calendar')}</button></div>
+    <div class="panel table-wrap"><table class="billing-table"><thead><tr><th>Mes</th><th>Inicio</th><th>Fim</th><th></th><th>Consumo</th><th>Valor</th><th>Opcoes</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderGeracao(){
+  document.getElementById('view-geracao').innerHTML = `
+    ${pageTitle('gear','Minha Geracao')}
+    <div class="form-grid">
+      <div class="field"><label class="label">Area</label><select class="select"><option>KWM</option><option>Bebezinho</option></select></div>
+      <div class="field"><label class="label">Dia inicial</label><input class="input" type="date" value="${today()}"></div>
+      <div class="field"><label class="label">Dia final</label><input class="input" type="date" value="${today()}"></div>
+      <button class="btn" onclick="drawGeneration()">${svg('search')}</button>
+    </div>
+    <div id="generationOutput" class="empty"></div>`;
+}
+function renderRelatorios(){
+  document.getElementById('view-relatorios').innerHTML = `
+    ${pageTitle('file','Relatorios','<span class="pill">Energia</span>')}
+    <div class="form-grid">
+      <div class="field"><label class="label">Secoes</label><select class="select"><option>Tabela de Custo e Consumo</option><option>Resumo executivo</option></select></div>
+      <div class="field"><label class="label">Area</label><select class="select"><option>Bebezinho</option></select></div>
+      <div class="field"><label class="label">Data inicial</label><input class="input" type="date" value="${today()}"></div>
+      <div class="field"><label class="label">Data final</label><input class="input" type="date" value="${today()}"></div>
+      <button class="btn" onclick="toast('Previa de relatorio gerada')">Gerar Previa</button>
+      <button class="btn" onclick="toast('Rascunho JSON criado')">Abrir Rascunho (JSON)</button>
+    </div>`;
+}
+function renderAlertas(){
+  const rows = Array.from({length:12}, (_,i) => `<tr><td><input type="checkbox"></td><td>${String(8-i).padStart(2,'0')} de junho de 2026 00:00:00</td><td><b>Medidor offline</b></td><td>Ola, IST EFICIENCIA. Voce tem um novo alerta: Medidor indisponivel.</td><td><input type="checkbox"></td></tr>`).join('');
+  document.getElementById('view-alertas').innerHTML = `
+    ${pageTitle('bell','Alertas','<button class="btn">+ Criar alerta</button><span class="pill">Energia</span>')}
+    ${notice('Gerencie e visualize alertas para energia. Receba notificacoes em tempo real em seu e-mail ou WhatsApp.')}
+    <h2 class="section-title">Alertas cadastrados</h2>
+    <div class="panel table-wrap" style="margin-bottom:14px"><table><thead><tr><th>Habilitado</th><th>Descricao</th><th>Condicao</th><th>Area / Medidor</th><th>Editar</th><th>Remover</th></tr></thead><tbody><tr><td><input type="checkbox" checked></td><td>Medidor offline</td><td>Medidor indisponivel</td><td>${deviceName(currentDevice())}</td><td>editar</td><td><button class="btn icon orange">x</button></td></tr></tbody></table></div>
+    <h2 class="section-title">Notificacoes</h2>
+    <div class="toolbar" style="margin-bottom:8px"><button class="btn">Todos</button><button class="btn orange">90</button><button class="btn">Medidor indisponivel</button><button class="btn orange">90</button></div>
+    <div class="panel table-wrap"><table><thead><tr><th></th><th>Data</th><th>Titulo</th><th>Mensagem</th><th>Mitigar</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderDownloads(){
+  document.getElementById('view-downloads').innerHTML = `
+    ${pageTitle('download','Downloads','<span class="pill">Energia</span>')}
+    ${notice('Preencha os campos abaixo para realizar o download dos dados em CSV.')}
+    <div class="download-layout">
+      <section class="panel"><div class="panel-body">
+        <h2 class="section-title">O que voce deseja exportar?</h2>
+        <label class="label">1. Selecione a categoria de dados</label><select class="select"><option>Consumo</option><option>Grandezas eletricas</option></select>
+        <div style="height:14px"></div><label class="label">2. Periodo dos dados</label><div class="seg"><button class="active">Hoje</button><button>Ontem</button><button>7 dias</button><button>30 dias</button><button>Mes atual</button></div>
+        <div class="form-grid" style="margin-top:10px"><div class="field"><label class="label">Inicio</label><input class="input" type="date" value="${today()}"></div><div class="field"><label class="label">Fim</label><input class="input" type="date" value="${today()}"></div></div>
+        <div style="height:14px"></div><label class="label">3. Como agrupar os dados?</label><div class="radio-grid"><label class="radio-box"><input type="radio" name="g">A cada 15 minutos</label><label class="radio-box"><input type="radio" name="g" checked>Por hora</label><label class="radio-box"><input type="radio" name="g">Por dia</label><label class="radio-box"><input type="radio" name="g">Por mes</label></div>
+        <div style="height:14px"></div><label class="label">4. De quais medidores?</label><select class="select">${deviceOptions()}</select>
+      </div></section>
+      <section class="panel"><div class="panel-body"><h2 class="section-title">Resumo</h2><div class="summary-row">${svg('file')}<div><span>Formato</span><br><b>CSV</b></div></div><div class="summary-row">${svg('chart')}<div><span>Estimativa de registros</span><br><b>${historyRows.length || 0} registros</b></div></div><div class="summary-row">${svg('download')}<div><span>Tamanho aproximado</span><br><b>0 KB</b></div></div><button class="btn" style="width:100%;margin-top:12px" onclick="exportCSV()">${svg('download')}Exportar CSV</button></div></section>
+    </div>`;
+}
+function renderConfig(){
+  const list = devices.length ? devices : demoDevices();
+  if (!selectedCfgDevice && list.length) selectedCfgDevice = deviceId(list[0]);
+  const selected = list.find(d => deviceId(d) === selectedCfgDevice) || list[0] || {};
+  const selectedId = deviceId(selected);
+  const selectedName = deviceName(selected);
+  const tree = list.map((d)=>`<div class="tree-group">${deviceName(d)}</div><button class="tree-item ${deviceId(d)===selectedId?'active':''}" onclick="selectCfgDevice('${deviceId(d).replace(/'/g, "\\'")}')">${svg('bolt')} <span>${deviceId(d)}</span></button>`).join('');
+  document.getElementById('view-config').innerHTML = `
+    ${pageTitle('gear','Configuracoes')}
+    ${notice('Tela de configuracoes da plataforma, onde podemos definir opcoes de tarifas, metas de consumo e outros itens.')}
+    <div class="tree-layout">
+      <aside class="tree"><input class="input tree-search" placeholder="Buscar area ou sensor"><button class="btn ghost" style="width:100%;margin-bottom:10px">Nova area</button>${tree}</aside>
+      <section>
+        <div class="page-hd"><div class="title-row"><span class="title-ico">${svg('home')}</span><div><h2 class="section-title" style="margin:0">${selectedName}</h2><span class="pill">ID ${selectedId}</span></div></div><button class="btn" onclick="saveSettings()">Salvar</button></div>
+        <div class="cfg-grid">
+          ${panel('Geral', `<div class="form-grid" style="grid-template-columns:1fr 1fr"><div class="field"><label class="label">Nome da area / empresa</label><input class="input" id="cfgAreaName" value="${selectedName}"></div><div class="field"><label class="label">ID do equipamento</label><input class="input" value="${selectedId}" readonly></div><div class="field"><label class="label">Predio principal?</label><input class="input" value="Esse e o seu predio principal?"></div><div class="field"><label class="label">Antecessor</label><input class="input" value="SENAI"></div></div><h2 class="section-title">Energia</h2><div class="form-grid" style="grid-template-columns:1fr 1fr"><div class="field"><label class="label">Dia do fechamento de conta</label><input class="input" value="1"></div><div class="field"><label class="label">Meta mensal de consumo</label><input class="input" id="cfgGoal" value="4000"></div><div class="field"><label class="label">Tensao</label><select class="select"><option>220 Volts</option></select></div><div class="field"><label class="label">Numero de fases</label><select class="select"><option>Trifasico (3)</option></select></div></div>`)}
+          ${panel('Tarifas', `<div class="field"><label class="label">Tipo predio</label><select class="select"><option>Industrial</option></select></div><div class="field"><label class="label">Concessionaria</label><input class="input" value="Energisa_PB"></div><div class="field"><label class="label">Modalidade tarifaria</label><input class="input" value="Tarifa Verde"></div><div class="field"><label class="label">Demanda fora ponta</label><input class="input" value="30 kW"></div><h2 class="section-title">Opcoes</h2><div class="field"><label class="label">Deseja receber relatorios por email?</label><input class="input" value="Deseja receber relatorios por email?"></div><div class="field"><label class="label">Tipo de medicao</label><select class="select"><option>Consumo</option></select></div>`)}
+        </div>
+      </section>
+    </div>`;
+}
+function deviceOptions(){
+  const list = devices.length ? devices : demoDevices();
+  return list.map(d => `<option value="${deviceId(d)}">${deviceName(d)}</option>`).join('');
+}
+function demoDevices(){
+  return ['SVX-ENERGIA-001','SVX-ENERGIA-002','SVX-ENERGIA-003','SVX-ENERGIA-004','SVX-ENERGIA-005','SVX-ENERGIA-006','SVX-ENERGIA-007','SVX-ENERGIA-008','SVX-ENERGIA-009','SVX-ENERGIA-010','SVX-ENERGIA-011','SVX-ENERGIA-012'].map((device,i)=>({ device, pt: i % 4 ? (i+1)*52 : 0, pa:(i+1)*12, pb:(i+1)*9, pc:(i+1)*7, va:220+i, vb:219+i, vc:221+i, ia:i*.7, ib:i*.5, ic:i*.6, fpt:.91, hz:60, tc:31+i/3, created_at: new Date(Date.now()-i*17000).toISOString() }));
+}
+async function loadGroupNames(){
+  try {
+    const res = await fetch(`${API}/grupos`);
+    if (!res.ok) throw new Error('grupos');
+    const rows = await res.json();
+    groupNames = {};
+    if (Array.isArray(rows)) rows.forEach(r => {
+      if (r.dispositivo && r.nome_grupo) groupNames[r.dispositivo] = r.nome_grupo;
+    });
+  } catch {
+    groupNames = {};
   }
 }
-
-function destruirGraficos() {
-  [chartPt, chartVafp, chartHzTc].forEach(c => c?.destroy());
-  chartPt = chartVafp = chartHzTc = null;
+async function refreshData(){
+  try {
+    const res = await fetch(`${API}/api/dashboard`);
+    if (!res.ok) throw new Error('api');
+    const data = await res.json();
+    devices = Array.isArray(data) && data.length ? data : demoDevices();
+    ensureSelectedDevice();
+    document.getElementById('livePill').innerHTML = '<span class="status-dot online"></span>Online';
+  } catch {
+    devices = demoDevices();
+    ensureSelectedDevice();
+    document.getElementById('livePill').innerHTML = '<span class="status-dot warning"></span>Demo';
+  }
+  renderAll();
 }
+function renderAll(){
+  renderAreaSelect();
+  renderDashboards(); renderHome(); renderMonitor(); renderHistorico(); renderAnalise(); renderFaturamento(); renderGeracao(); renderRelatorios(); renderAlertas(); renderDownloads(); renderConfig();
+  syncSelectionControls();
+}
+function drawHome(){
+  const labels = Array.from({length:12}, (_,i)=>`${String(8+i).padStart(2,'0')}:00`);
+  makeLine('homeDemand', labels, [{ label:'Demanda', data:fakeSeries('pt',12), borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.12)', tension:.35, fill:true }], 'W');
+  makeGauge('effGauge', 6.8, 10);
+}
+async function fetchHistoryByWindow(device, seconds, limit = 5000){
+  const safeSeconds = Math.min(Math.max(parseInt(seconds, 10) || 30, 1), 30 * 24 * 3600);
+  const res = await fetch(`${API}/api/historico/${encodeURIComponent(device)}?janela=${safeSeconds}&limit=${limit}`);
+  if (!res.ok) throw new Error('historico');
+  const rows = await res.json();
+  if (!Array.isArray(rows) || !rows.length) return [];
 
-/* ─── CSV ─── */
-function downloadCSV() {
-  if (!dadosHistorico.length) { toast('Sem dados','err'); return; }
-  const cols = ['created_at','device','va','vb','vc','ia','ib','ic','pa','pb','pc','pt','fpa','fpb','fpc','fpt','hz','tc'];
-  const esc  = v => `"${String(v??'').replace(/"/g,'""')}"`;
-  const linhas = [cols.join(','), ...dadosHistorico.map(r => cols.map(c=>esc(r[c])).join(','))];
-  const blob = new Blob([linhas.join('\n')], { type:'text/csv;charset=utf-8;' });
+  const dated = rows
+    .filter(r => r.created_at && !isNaN(new Date(r.created_at).getTime()))
+    .sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+  if (!dated.length) return rows;
+
+  const latestTs = new Date(dated[dated.length - 1].created_at).getTime();
+  const minTs = latestTs - safeSeconds * 1000;
+  return dated.filter(r => new Date(r.created_at).getTime() >= minTs);
+}
+function rowsAsc(rows){
+  return rows.slice().sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+}
+function rowLabels(rows){
+  return rows.map((r, i) => r.created_at ? new Date(r.created_at).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) : String(i + 1));
+}
+async function drawMonitor(){
+  const selected = document.getElementById('deviceSelect')?.value || ensureSelectedDevice();
+  if (selected !== selectedDeviceId) setSelectedDevice(selected);
+  const metric = document.getElementById('metricSelect')?.value || 'pt';
+  const windowInput = document.getElementById('monitorWindow');
+  const seconds = Math.min(Math.max(parseInt(windowInput?.value, 10) || 30, 1), 30 * 24 * 3600);
+  if (windowInput) windowInput.value = seconds;
+  localStorage.setItem('svoltix_window_seconds', seconds);
+  let rows = [];
+  try {
+    rows = await fetchHistoryByWindow(selectedDeviceId, seconds);
+  } catch {
+    rows = [currentDevice()];
+  }
+  const ordered = rowsAsc(rows.length ? rows : [currentDevice()]);
+  const labels = rowLabels(ordered);
+  const total = ordered.map(r => Number(r[metric] ?? r.pt ?? 0));
+  makeLine('monitorLine', labels, [
+    { label:'Total', data: total, borderColor:'#23628f', tension:.35 },
+    { label:'Fase A', data: ordered.map(r => Number(r.pa ?? r.va ?? 0)), borderColor:'#fbbf24', tension:.35 },
+    { label:'Fase B', data: ordered.map(r => Number(r.pb ?? r.vb ?? 0)), borderColor:'#34d399', tension:.35 },
+    { label:'Fase C', data: ordered.map(r => Number(r.pc ?? r.vc ?? 0)), borderColor:'#f87171', tension:.35 }
+  ], 'Potencia');
+  const latest = ordered[ordered.length - 1] || currentDevice();
+  const gaugeValues = [
+    Number(latest.pt || 0) / 1000,
+    Number(latest.pa || 0) / 1000,
+    Number(latest.pb || 0) / 1000,
+    Number(latest.pc || 0) / 1000
+  ];
+  gaugeValues.forEach((v, i) => {
+    makeGauge(`gauge${i}`, Math.max(0.01, Math.abs(v)), 10);
+    const el = document.getElementById(`gaugeVal${i}`);
+    if (el) el.textContent = `${num(v,2)} kW`;
+  });
+}
+async function loadHistory(){
+  const dev = document.getElementById('histDevice')?.value || ensureSelectedDevice();
+  if (dev !== selectedDeviceId) setSelectedDevice(dev);
+  const metric = document.getElementById('histMetric')?.value || 'pt';
+  const seconds = Math.min(Math.max(parseInt(document.getElementById('histWindow')?.value, 10) || 300, 1), 30 * 24 * 3600);
+  localStorage.setItem('svoltix_window_seconds', seconds);
+  const out = document.getElementById('histOutput');
+  out.className = '';
+  out.innerHTML = panel(`Resultado historico - ${deviceName(currentDevice())} - ultimos ${seconds}s`, '<div class="chart-box tall"><canvas id="histChart"></canvas></div>');
+  try {
+    const rows = await fetchHistoryByWindow(dev, seconds);
+    historyRows = Array.isArray(rows) && rows.length ? rows : demoDevices();
+  } catch { historyRows = demoDevices(); }
+  const ordered = rowsAsc(historyRows);
+  const labels = rowLabels(ordered);
+  const data = ordered.map(r => Number(r[metric] || r.pt || 0));
+  makeLine('histChart', labels, [{ label: metric.toUpperCase(), data, borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.08)', fill:true, tension:.3 }], metric);
+}
+async function drawAnalysis(){
+  const dev = document.getElementById('anaDevice')?.value || ensureSelectedDevice();
+  if (dev !== selectedDeviceId) setSelectedDevice(dev);
+  let rows = [];
+  try { rows = await fetchHistoryByWindow(selectedDeviceId, localStorage.getItem('svoltix_window_seconds') || 300); }
+  catch { rows = [currentDevice()]; }
+  const ordered = rowsAsc(rows.length ? rows : [currentDevice()]);
+  const values = ordered.map(r => Number(r.pt || 0));
+  const avg = values.length ? values.reduce((a,b)=>a+b,0) / values.length : 0;
+  const out = document.getElementById('analysisOutput');
+  out.className = '';
+  out.innerHTML = `<div class="cards grid-2">${panel(`Curva de consumo - ${deviceName(currentDevice())}`, '<div class="chart-box"><canvas id="analysisChart"></canvas></div>')}${panel('Resumo', `<div class="metric-list"><div class="metric-line"><span>Media</span><b>${num(avg/1000,2)} kW</b></div><div class="metric-line"><span>Pico</span><b>${num((Math.max(...values,0))/1000,2)} kW</b></div><div class="metric-line"><span>Fator de potencia</span><b>${num(totals().fp,2)}</b></div></div>`)}</div>`;
+  makeLine('analysisChart', rowLabels(ordered), [{ label:'Consumo', data:values, borderColor:'#23628f', tension:.35 }], 'W');
+}
+function drawGeneration(){
+  const out = document.getElementById('generationOutput');
+  out.className = '';
+  out.innerHTML = panel('Geracao por periodo', '<div class="chart-box"><canvas id="generationChart"></canvas></div>');
+  makeLine('generationChart', Array.from({length:12}, (_,i)=>`${i+6}h`), [{ label:'Geracao', data:fakeSeries('pt',12).map(v=>v*.42), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', fill:true, tension:.35 }], 'W');
+}
+function exportCSV(){
+  const rows = historyRows.length ? historyRows : devices;
+  const cols = ['created_at','device','va','vb','vc','ia','ib','ic','pa','pb','pc','pt','fpt','hz','tc'];
+  const csv = [cols.join(','), ...rows.map(r => cols.map(c => `"${String(r[c] ?? '').replace(/"/g,'""')}"`).join(','))].join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  const device = document.getElementById('selectDevice').value.replace(/[^a-zA-Z0-9]/g,'_');
-  a.download = `svoltix_${device}_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click(); a.remove();
-  toast('CSV exportado com sucesso', 'ok');
+  a.download = `svoltix_export_${today()}.csv`;
+  a.click();
+  a.remove();
+  toast('CSV exportado');
 }
-
-/* ─── INIT ─── */
-(async () => {
-  await carregarNomesGrupos();
-  await atualizar();
-  intervalId = setInterval(atualizar, updateMs);
-})();
+function saveSettings(){
+  const name = document.getElementById('cfgAreaName')?.value.trim();
+  const goal = document.getElementById('cfgGoal')?.value;
+  if (goal) localStorage.setItem('svoltix_goal', goal);
+  if (!selectedCfgDevice || !name) { toast('Informe o nome da area'); return; }
+  groupNames[selectedCfgDevice] = name;
+  fetch(`${API}/grupos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dispositivo: selectedCfgDevice, nome_grupo: name })
+  })
+    .then(r => {
+      if (!r.ok) throw new Error('save');
+      toast('Nome salvo no banco');
+      renderAll();
+      go('config');
+    })
+    .catch(() => toast('Nao foi possivel salvar no banco'));
+}
+function selectCfgDevice(id){
+  selectedCfgDevice = id;
+  renderConfig();
+}
+function sair(){
+  localStorage.removeItem('logado');
+  location.href = 'index.html';
+}
+function init(){
+  document.getElementById('userName').textContent = localStorage.getItem('usuario') || 'IST EFICIENCIA';
+  renderNav();
+  loadGroupNames().then(refreshData);
+  setInterval(refreshData, Number(localStorage.getItem('svoltix_interval') || 15) * 1000);
+}
+init();
 </script>
-
 </body>
 </html>

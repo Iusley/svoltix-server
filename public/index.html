@@ -328,7 +328,11 @@ input:focus {
 </div>
 
 <script>
-const API = 'https://evidence-spider-inclusive-venice.trycloudflare.com';
+const TUNNEL_API = 'https://printer-foot-beauty-spectrum.trycloudflare.com';
+const savedApi = localStorage.getItem('svoltix_api');
+const API = savedApi && !/localhost|127\.0\.0\.1|\[::1\]|::1/i.test(savedApi) ? savedApi : TUNNEL_API;
+localStorage.setItem('svoltix_api', API);
+const LOCAL_DEMO = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 
 function toggleSenha() {
   const campo = document.getElementById('senha');
@@ -371,12 +375,24 @@ async function login() {
       localStorage.setItem('usuario', data.usuario || usuario);
       localStorage.setItem('svoltix_api', API);
       location.href = 'dashboard.html';
+    } else if (LOCAL_DEMO && res.status >= 500) {
+      localStorage.setItem('logado', 'demo');
+      localStorage.setItem('usuario', usuario || 'IST EFICIENCIA');
+      localStorage.setItem('svoltix_api', API);
+      location.href = 'dashboard.html';
     } else {
       setMsg('Usuário ou senha inválidos.');
       btn.disabled = false;
       btn.classList.remove('loading');
     }
   } catch {
+    if (LOCAL_DEMO) {
+      localStorage.setItem('logado', 'demo');
+      localStorage.setItem('usuario', usuario || 'IST EFICIENCIA');
+      localStorage.setItem('svoltix_api', API);
+      location.href = 'dashboard.html';
+      return;
+    }
     setMsg('Erro de conexão com o servidor.');
     btn.disabled = false;
     btn.classList.remove('loading');

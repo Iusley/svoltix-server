@@ -170,7 +170,9 @@ app.get('/api/dispositivos', async (_, res) => {
 ═══════════════════════════════════════════════════════════ */
 app.get('/api/historico/:device', async (req, res) => {
   try {
-    // Suporta filtro por tempo via query (recomendado)
+    // Suporta filtro por tempo via query.
+    // periodo: '1h' | '6h' | '24h' | '7d'
+    // janela/segundos/seconds: janela livre em segundos (ex.: 40)
     const periodo = req.query.periodo; // '1h' | '6h' | '24h' | '7d'
     const limMs = {
       '1h': 3600e3,
@@ -179,23 +181,42 @@ app.get('/api/historico/:device', async (req, res) => {
       '7d': 604800e3
     };
 
-    const hasPeriodo = periodo && limMs[periodo];
+    const janelaSeg = Math.min(
+      Math.max(parseInt(req.query.janela || req.query.segundos || req.query.seconds, 10) || 0, 0),
+      30 * 24 * 3600
+    );
+    const hasJanela = janelaSeg > 0;
+    const hasPeriodo = !hasJanela && periodo && limMs[periodo];
     const sinceExpr = hasPeriodo ? `now() - interval '${Math.floor(limMs[periodo] / 1000)} seconds'` : null;
 
     const limit = Math.min(parseInt(req.query.limit, 10) || 2000, 10000);
 
-    const sql = hasPeriodo
-      ? `SELECT * FROM telemetria
+    let sql;
+    let params;
+
+    if (hasJanela) {
+      sql = `SELECT * FROM telemetria
+         WHERE device = $1
+           AND created_at >= now() - ($3 * interval '1 second')
+         ORDER BY id DESC
+         LIMIT $2`;
+      params = [req.params.device, limit, janelaSeg];
+    } else if (hasPeriodo) {
+      sql = `SELECT * FROM telemetria
          WHERE device = $1
            AND created_at >= ${sinceExpr}
          ORDER BY id DESC
-         LIMIT $2`
-      : `SELECT * FROM telemetria
+         LIMIT $2`;
+      params = [req.params.device, limit];
+    } else {
+      sql = `SELECT * FROM telemetria
          WHERE device = $1
          ORDER BY id DESC
          LIMIT $2`;
+      params = [req.params.device, limit];
+    }
 
-    const result = await pool.query(sql, [req.params.device, limit]);
+    const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch (e) { fail(res, e); }
 });

@@ -374,6 +374,8 @@ th {
 tbody tr:nth-child(even) { background: #f4f9fc; }
 tbody tr:hover { background: #edf8fb; }
 .dashboard-row td { height: 42px; }
+.dashboard-table { table-layout:fixed; }
+.dashboard-table th, .dashboard-table td { overflow:hidden; text-overflow:ellipsis; }
 .power { color: #23628f; font-weight: 800; white-space: nowrap; }
 .power svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 5px; }
 .id-note { display: inline; margin-left: 8px; color: #7890aa; font-size: 11px; }
@@ -1145,7 +1147,7 @@ function renderDashboards(){
       <div class="field" style="max-width:210px"><label class="label">Multimedidor</label><select id="dashboardMeter" class="select" onchange="atualizarFiltrosDashboard()"><option value="todos">Todos</option><option value="online" ${filtroMedidorDashboard==='online'?'selected':''}>Operante</option><option value="warning" ${filtroMedidorDashboard==='warning'?'selected':''}>Sem diagnostico</option><option value="offline" ${filtroMedidorDashboard==='offline'?'selected':''}>Indisponivel</option></select></div>
       <button class="btn ghost" onclick="limparFiltrosDashboard()">Limpar filtros</button>
     </div>
-    <div class="panel table-wrap"><table><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="5"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>`;
+    <div class="panel table-wrap"><table class="dashboard-table"><colgroup><col style="width:32%"><col style="width:20%"><col style="width:22%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="5"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>`;
   aplicarFiltrosNaTabelaDashboard();
 }
 function setDataDemanda(data){

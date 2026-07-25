@@ -379,11 +379,21 @@ tbody tr:hover { background: #edf8fb; }
 .custom-grid > .component { grid-column:span 4; }
 .custom-grid > .component.wide { grid-column:span 12; }
 .custom-grid > .component.kpi-component { grid-column:span 3; }
-.layout-editor { margin-bottom:12px; border:1px solid #b9d5e8; background:#eef8ff; border-radius:var(--radius); padding:12px; }
-.layout-editor-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(235px,1fr)); gap:8px; margin-top:10px; }
-.layout-editor-item { display:flex; align-items:center; gap:7px; background:white; border:1px solid #d8e2ec; border-radius:6px; padding:7px; }
-.layout-editor-item b { flex:1; font-size:12px; }
-.layout-editor-item select { width:76px; height:26px; }
+.layout-mode .component { position:relative; cursor:grab; outline:2px dashed transparent; outline-offset:4px; }
+.layout-mode .component:hover { outline-color:#38bdf8; }
+.layout-mode .component.dragging { opacity:.45; }
+.layout-mode .component.drag-over { outline-color:#16a6ba; background:#e6f8fb; }
+.layout-drawer-backdrop { position:fixed; inset:0; background:rgba(7,21,38,.28); z-index:60; }
+.layout-drawer { position:fixed; z-index:61; top:0; right:0; width:min(390px,100vw); height:100vh; overflow:auto; background:#f5f8fc; box-shadow:-12px 0 30px rgba(10,27,54,.2); padding:20px; }
+.layout-drawer-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding-bottom:16px; border-bottom:1px solid #dbe6ef; }
+.layout-drawer-head h2 { margin:0; color:#142b44; font-size:20px; }
+.layout-drawer-head p { margin:5px 0 0; color:#667c94; font-size:12px; }
+.layout-drawer-list { display:grid; gap:9px; margin:16px 0; }
+.layout-drawer-item { display:flex; align-items:center; gap:9px; background:white; border:1px solid #d8e2ec; border-radius:10px; padding:11px; }
+.layout-drawer-item b { flex:1; color:#183958; font-size:13px; }
+.layout-drawer-item select { width:82px; height:30px; }
+.layout-drawer-item .drag-handle { color:#7690a8; font-size:18px; cursor:grab; }
+.layout-drawer-actions { position:sticky; bottom:-20px; display:flex; gap:8px; padding:14px 0 4px; background:#f5f8fc; }
 .dashboard-row { cursor: pointer; }
 .alert-card {
   background: #23628f;
@@ -547,8 +557,6 @@ tbody tr:hover { background: #edf8fb; }
       <div class="topbar-title">SVoltix</div>
       <div class="topbar-sub" id="breadcrumb">Meus Dashboards</div>
       <div class="topbar-spacer"></div>
-      <span class="pill hide-sm">Powered by SVoltix</span>
-      <span class="pill" id="livePill"><span class="status-dot online"></span>Online</span>
       <button class="btn icon ghost" onclick="sair()" title="Sair"><svg viewBox="0 0 24 24" fill="none"><path d="M10 17l5-5-5-5M15 12H3M21 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </header>
 
@@ -582,6 +590,7 @@ let selectedDeviceId = localStorage.getItem('svoltix_device') || '';
 let selectedCfgDevice = '';
 let layoutsPorEquipamento = {};
 let editandoLayout = false;
+let temporizadorSalvarLayout = null;
 const COMPONENTES_INICIAIS = [
   ['saude','Situacao do equipamento','painel'], ['indicadores','Indicadores de consumo','painel'],
   ['grafico','Grafico de demanda','painel'], ['detalhes','Metricas, eficiencia e alertas','painel']
@@ -591,38 +600,83 @@ function layoutAtual(){
   const id = ensureSelectedDevice();
   const salvo = layoutsPorEquipamento[id];
   if (!salvo?.itens) return layoutPadrao();
-  const mapa = new Map(salvo.itens.map(i => [i.id,i]));
-  return { itens: COMPONENTES_INICIAIS.map(([id,nome,tipo]) => ({ id,nome,tipo,visivel:true,tamanho:'normal',...mapa.get(id) })) };
+  const modelos = new Map(COMPONENTES_INICIAIS.map(([id,nome,tipo]) => [id,{ id,nome,tipo,visivel:true,tamanho:id==='grafico'||id==='saude'?'largo':'normal' }]));
+  const itensSalvos = salvo.itens
+    .filter(item => modelos.has(item.id))
+    .map(item => ({ ...modelos.get(item.id), ...item }));
+  const faltantes = COMPONENTES_INICIAIS
+    .filter(([id]) => !itensSalvos.some(item => item.id === id))
+    .map(([id]) => modelos.get(id));
+  return { itens: [...itensSalvos, ...faltantes] };
 }
 async function carregarLayoutAtual(){
   const id = ensureSelectedDevice();
   if (!id) return;
+  let cacheLocal = null;
+  try { cacheLocal = JSON.parse(localStorage.getItem(chaveCacheLayout(id)) || 'null'); } catch {}
   try {
     const res = await fetch(`${API}/api/dashboard-layout/${encodeURIComponent(id)}`);
     const data = await res.json();
-    layoutsPorEquipamento[id] = data.layout?.itens ? data.layout : layoutPadrao();
-  } catch { layoutsPorEquipamento[id] = layoutsPorEquipamento[id] || layoutPadrao(); }
+    layoutsPorEquipamento[id] = data.layout?.itens ? data.layout : (cacheLocal?.itens ? cacheLocal : layoutPadrao());
+    guardarLayoutLocal(id, layoutsPorEquipamento[id]);
+  } catch { layoutsPorEquipamento[id] = cacheLocal?.itens ? cacheLocal : (layoutsPorEquipamento[id] || layoutPadrao()); }
 }
+function chaveCacheLayout(id){ return `svoltix_layout_${id}`; }
+function guardarLayoutLocal(id, layout){ localStorage.setItem(chaveCacheLayout(id), JSON.stringify(layout)); }
 function alternarEditorLayout(){ editandoLayout = !editandoLayout; renderHome(); }
 function alterarItemLayout(indice, campo, valor){
   const layout = layoutAtual();
   layout.itens[indice][campo] = campo === 'visivel' ? Boolean(valor) : valor;
   layoutsPorEquipamento[ensureSelectedDevice()] = layout;
+  guardarLayoutLocal(ensureSelectedDevice(), layout);
+  agendarSalvarLayout();
   renderHome();
 }
 function moverItemLayout(indice, direcao){
   const layout = layoutAtual(); const destino = indice + direcao;
   if (destino < 0 || destino >= layout.itens.length) return;
   [layout.itens[indice], layout.itens[destino]] = [layout.itens[destino], layout.itens[indice]];
-  layoutsPorEquipamento[ensureSelectedDevice()] = layout; renderHome();
+  layoutsPorEquipamento[ensureSelectedDevice()] = layout;
+  guardarLayoutLocal(ensureSelectedDevice(), layout);
+  agendarSalvarLayout();
+  renderHome();
 }
-async function salvarLayout(){
+function iniciarArrasteLayout(event, indice){ event.dataTransfer.setData('text/plain', String(indice)); event.currentTarget.classList.add('dragging'); }
+function permitirSoltarLayout(event){ event.preventDefault(); event.currentTarget.classList.add('drag-over'); }
+function limparSoltarLayout(event){ event.currentTarget.classList.remove('drag-over'); }
+function soltarLayout(event, destino){
+  event.preventDefault();
+  const origem = Number(event.dataTransfer.getData('text/plain'));
+  if (!Number.isInteger(origem) || origem === destino) return;
+  const layout = layoutAtual();
+  const [item] = layout.itens.splice(origem, 1);
+  layout.itens.splice(destino, 0, item);
+  layoutsPorEquipamento[ensureSelectedDevice()] = layout;
+  guardarLayoutLocal(ensureSelectedDevice(), layout);
+  agendarSalvarLayout();
+  renderHome();
+}
+function finalizarArrasteLayout(){ document.querySelectorAll('.component').forEach(item => item.classList.remove('dragging','drag-over')); }
+function restaurarLayoutPadrao(){
+  const id = ensureSelectedDevice();
+  layoutsPorEquipamento[id] = layoutPadrao();
+  guardarLayoutLocal(id, layoutsPorEquipamento[id]);
+  agendarSalvarLayout();
+  renderHome();
+}
+function agendarSalvarLayout(){
+  clearTimeout(temporizadorSalvarLayout);
+  temporizadorSalvarLayout = setTimeout(() => salvarLayout(true), 600);
+}
+async function salvarLayout(silencioso = false){
   const id = ensureSelectedDevice(); const layout = layoutAtual();
   try {
     const res = await fetch(`${API}/api/dashboard-layout/${encodeURIComponent(id)}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({layout}) });
     if (!res.ok) throw new Error('layout');
-    layoutsPorEquipamento[id] = layout; editandoLayout = false; renderHome(); toast('Layout salvo para este equipamento');
-  } catch { toast('Nao foi possivel salvar o layout'); }
+    layoutsPorEquipamento[id] = layout;
+    guardarLayoutLocal(id, layout);
+    if (!silencioso) { editandoLayout = false; renderHome(); toast('Layout salvo para este equipamento'); }
+  } catch { if (!silencioso) toast('Nao foi possivel salvar o layout'); }
 }
 
 const icons = {
@@ -876,8 +930,8 @@ function renderHome(){
     grafico: panel('Demanda - hoje', '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div>'),
     detalhes: `<div class="cards grid-3">${panel('Eficiencia', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b style="color:#fbbf24;font-size:20px">0 kWh</b><span style="color:#fbbf24">Consumo previsto nesse horario.</span></div>')}${panel('Metricas de consumo', `<div class="metric-list"><div class="metric-line"><span>Media diaria</span><b>${num(t.monthKwh/30,0)} kWh</b></div><div class="metric-line"><span>Maior consumo</span><b>${num(Math.max(t.todayKwh,60),0)} kWh</b></div><div class="metric-line"><span>Menor consumo</span><b>0 kWh</b></div></div>`)}${panel('Alertas', `<div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>${meterStatusOf(selected) === 'offline' ? 'ATIVO' : 'SEM ALERTA'}</span></div><div class="alert-body"><b>${meterStatusOf(selected) === 'offline' ? 'Multimedidor indisponivel' : 'Multimedidor operante'}</b><p>${meterStatusOf(selected) === 'offline' ? `O SVoltix ${selectedName} esta online, mas nao recebe leitura valida do multimedidor.` : `O SVoltix ${selectedName} esta recebendo leituras validas do multimedidor.`}</p></div><div class="alert-foot"><span>${tempoSemLeitura(selected) || 'Leitura valida atual'}</span><span>${deviceId(selected)}</span></div></div>`)}</div>`
   };
-  const editor = editandoLayout ? `<section class="layout-editor"><b>Personalizar painel de ${selectedName}</b><div class="muted">A personalizacao e exclusiva deste equipamento.</div><div class="layout-editor-list">${layout.itens.map((item, indice) => `<div class="layout-editor-item"><input type="checkbox" ${item.visivel ? 'checked' : ''} onchange="alterarItemLayout(${indice},'visivel',this.checked)"><b>${item.nome}</b><select onchange="alterarItemLayout(${indice},'tamanho',this.value)"><option value="normal" ${item.tamanho === 'normal' ? 'selected' : ''}>Normal</option><option value="largo" ${item.tamanho === 'largo' ? 'selected' : ''}>Largo</option></select><button class="btn ghost" onclick="moverItemLayout(${indice},-1)">↑</button><button class="btn ghost" onclick="moverItemLayout(${indice},1)">↓</button></div>`).join('')}</div><div style="margin-top:10px"><button class="btn" onclick="salvarLayout()">Salvar painel</button></div></section>` : '';
-  const componentes = layout.itens.filter(item => item.visivel).map(item => `<div class="component ${item.tamanho === 'largo' ? 'wide' : ''}">${blocos[item.id] || ''}</div>`).join('');
+  const editor = editandoLayout ? `<div class="layout-drawer-backdrop" onclick="alternarEditorLayout()"></div><aside class="layout-drawer"><div class="layout-drawer-head"><div><h2>Personalizar painel</h2><p>${selectedName} · alterações salvas automaticamente</p></div><button class="btn icon ghost" onclick="alternarEditorLayout()">×</button></div><div class="layout-drawer-list">${layout.itens.map((item, indice) => `<div class="layout-drawer-item"><span class="drag-handle">⠿</span><input type="checkbox" ${item.visivel ? 'checked' : ''} onchange="alterarItemLayout(${indice},'visivel',this.checked)"><b>${item.nome}</b><select onchange="alterarItemLayout(${indice},'tamanho',this.value)"><option value="normal" ${item.tamanho === 'normal' ? 'selected' : ''}>Normal</option><option value="largo" ${item.tamanho === 'largo' ? 'selected' : ''}>Largo</option></select><button class="btn ghost" onclick="moverItemLayout(${indice},-1)" title="Mover para cima">↑</button><button class="btn ghost" onclick="moverItemLayout(${indice},1)" title="Mover para baixo">↓</button></div>`).join('')}</div><div class="layout-drawer-actions"><button class="btn ghost" onclick="restaurarLayoutPadrao()">Restaurar</button><button class="btn" onclick="salvarLayout()">Concluir</button></div></aside>` : '';
+  const componentes = layout.itens.map((item, indice) => item.visivel ? `<div class="component ${item.tamanho === 'largo' ? 'wide' : ''}" ${editandoLayout ? `draggable="true" ondragstart="iniciarArrasteLayout(event,${indice})" ondragover="permitirSoltarLayout(event)" ondragleave="limparSoltarLayout(event)" ondrop="soltarLayout(event,${indice})" ondragend="finalizarArrasteLayout()"` : ''}>${blocos[item.id] || ''}</div>` : '').join('');
   document.getElementById('view-home').innerHTML = `
     <div class="toolbar" style="margin-bottom:14px">
       <button class="btn ghost">${svg('home')} ${selectedName}</button>
@@ -887,7 +941,8 @@ function renderHome(){
       <span style="flex:1"></span><button class="btn" onclick="alternarEditorLayout()">${editandoLayout ? 'Fechar' : 'Personalizar'} ${svg('gear')}</button>
     </div>
     ${editor}
-    <div class="custom-grid">${componentes}</div>`;
+    <div class="custom-grid ${editandoLayout ? 'layout-mode' : ''}">${componentes}</div>
+    ${editor}`;
   drawHome();
 }
 function kpi(icon,label,value,sub){
@@ -1036,20 +1091,18 @@ async function loadGroupNames(){
     groupNames = {};
   }
 }
-async function refreshData(){
+async function refreshData(inicial = false){
   try {
     const res = await fetch(`${API}/api/dashboard`);
     if (!res.ok) throw new Error('api');
     const data = await res.json();
     devices = Array.isArray(data) && data.length ? data : demoDevices();
     ensureSelectedDevice();
-    document.getElementById('livePill').innerHTML = '<span class="status-dot online"></span>Online';
   } catch {
     devices = demoDevices();
     ensureSelectedDevice();
-    document.getElementById('livePill').innerHTML = '<span class="status-dot warning"></span>Demo';
   }
-  carregarLayoutAtual().finally(renderAll);
+  if (inicial) carregarLayoutAtual().finally(renderAll);
 }
 function renderAll(){
   renderAreaSelect();
@@ -1199,8 +1252,8 @@ function sair(){
 function init(){
   document.getElementById('userName').textContent = localStorage.getItem('usuario') || 'IST EFICIENCIA';
   renderNav();
-  loadGroupNames().then(refreshData);
-  setInterval(refreshData, Number(localStorage.getItem('svoltix_interval') || 15) * 1000);
+  loadGroupNames().then(() => refreshData(true));
+  setInterval(() => refreshData(false), 60000);
 }
 init();
 </script>

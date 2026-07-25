@@ -57,6 +57,66 @@ const fail = (res, err, status = 500) => {
   res.status(status).json({ sucesso: false, erro: err?.message || String(err) });
 };
 
+let colunasTelemetria = null;
+
+/* Obtém o esquema existente sem alterar tabelas ou dados industriais. */
+async function obterColunasTelemetria() {
+  if (colunasTelemetria) return colunasTelemetria;
+
+  const resultado = await pool.query(
+    `SELECT column_name
+       FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'telemetria'`
+  );
+
+  colunasTelemetria = new Set(resultado.rows.map(linha => linha.column_name));
+  return colunasTelemetria;
+}
+
+/* Escapa identificadores vindos exclusivamente do catálogo PostgreSQL. */
+function identificador(nome) {
+  return `"${nome.replace(/"/g, '""')}"`;
+}
+
+function colunaDispositivo(colunas) {
+  if (colunas.has('device')) return 'device';
+  if (colunas.has('dispositivo')) return 'dispositivo';
+  throw new Error('A tabela telemetria não possui coluna de identificação do equipamento.');
+}
+
+function colunaOrdenacao(colunas) {
+  if (colunas.has('created_at')) return 'created_at';
+  if (colunas.has('id')) return 'id';
+  return colunaDispositivo(colunas);
+}
+
+/* Insere somente os campos que existem no esquema legado ou atual. */
+async function inserirTelemetria(dados) {
+  const colunas = await obterColunasTelemetria();
+  const identificadorDispositivo = colunaDispositivo(colunas);
+  const campos = [];
+  const valores = [];
+
+  for (const [campoOriginal, valor] of Object.entries(dados)) {
+    const campo = campoOriginal === 'device' ? identificadorDispositivo : campoOriginal;
+    if (!colunas.has(campo) || valor === undefined) continue;
+    campos.push(campo);
+    valores.push(valor);
+  }
+
+  if (!campos.includes(identificadorDispositivo)) {
+    campos.unshift(identificadorDispositivo);
+    valores.unshift(dados.device);
+  }
+
+  const marcadores = valores.map((_, indice) => `$${indice + 1}`);
+  await pool.query(
+    `INSERT INTO telemetria (${campos.map(identificador).join(', ')})
+     VALUES (${marcadores.join(', ')})`,
+    valores
+  );
+}
+
 /* ─── HEALTH CHECK ────────────────────────────────────────── */
 app.get('/health', async (_, res) => {
   try {
@@ -102,28 +162,9 @@ app.post('/login', async (req, res) => {
 app.post('/telemetria', async (req, res) => {
   try {
     const d = req.body;
+    if (!d || !d.device) throw new Error('Campo device obrigatório.');
 
-    await pool.query(
-      `INSERT INTO telemetria
-         (device,va,vb,vc,vab,vbc,vca,ia,ib,ic,
-          fpa,fpb,fpc,fpt,hz,pa,pb,pc,pt,
-          sa,sb,sc,st,qa,qb,qc,tc,uptime)
-       VALUES
-         ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-          $11,$12,$13,$14,$15,$16,$17,$18,$19,
-          $20,$21,$22,$23,$24,$25,$26,$27,$28)`,
-      [
-        d.device,
-        d.va, d.vb, d.vc, d.vab, d.vbc, d.vca,
-        d.ia, d.ib, d.ic,
-        d.fpa, d.fpb, d.fpc, d.fpt,
-        d.hz,
-        d.pa, d.pb, d.pc, d.pt,
-        d.sa, d.sb, d.sc, d.st,
-        d.qa, d.qb, d.qc,
-        d.tc, d.uptime
-      ]
-    );
+    await inserirTelemetria(d);
 
     ok(res);
   } catch (e) { fail(res, e); }
@@ -134,20 +175,14 @@ app.post('/telemetria', async (req, res) => {
 ═══════════════════════════════════════════════════════════ */
 app.get('/api/dashboard', async (_, res) => {
   try {
+    const colunas = await obterColunasTelemetria();
+    const dispositivo = colunaDispositivo(colunas);
+    const ordenacao = colunaOrdenacao(colunas);
     const result = await pool.query(
-      `SELECT DISTINCT ON (device)
-         device,
-         va, vb, vc, vab, vbc, vca,
-         ia, ib, ic,
-         fpa, fpb, fpc, fpt,
-         hz,
-         pa, pb, pc, pt,
-         sa, sb, sc, st,
-         qa, qb, qc,
-         tc, uptime,
-         created_at
+      `SELECT DISTINCT ON (${identificador(dispositivo)})
+         *, ${identificador(dispositivo)} AS device
        FROM telemetria
-       ORDER BY device, id DESC`
+       ORDER BY ${identificador(dispositivo)}, ${identificador(ordenacao)} DESC`
     );
     res.json(result.rows);
   } catch (e) { fail(res, e); }
@@ -158,10 +193,13 @@ app.get('/api/dashboard', async (_, res) => {
 ═══════════════════════════════════════════════════════════ */
 app.get('/api/ultima-leitura/:device', async (req, res) => {
   try {
+    const colunas = await obterColunasTelemetria();
+    const dispositivo = colunaDispositivo(colunas);
+    const ordenacao = colunaOrdenacao(colunas);
     const result = await pool.query(
-      `SELECT * FROM telemetria
-       WHERE device = $1
-       ORDER BY id DESC LIMIT 1`,
+      `SELECT *, ${identificador(dispositivo)} AS device FROM telemetria
+       WHERE ${identificador(dispositivo)} = $1
+       ORDER BY ${identificador(ordenacao)} DESC LIMIT 1`,
       [req.params.device]
     );
     res.json(result.rows[0] || null);
@@ -173,8 +211,11 @@ app.get('/api/ultima-leitura/:device', async (req, res) => {
 ═══════════════════════════════════════════════════════════ */
 app.get('/api/dispositivos', async (_, res) => {
   try {
+    const colunas = await obterColunasTelemetria();
+    const dispositivo = colunaDispositivo(colunas);
     const result = await pool.query(
-      `SELECT DISTINCT device FROM telemetria ORDER BY device`
+      `SELECT DISTINCT ${identificador(dispositivo)} AS device
+         FROM telemetria ORDER BY device`
     );
     res.json(result.rows);
   } catch (e) { fail(res, e); }
@@ -185,6 +226,10 @@ app.get('/api/dispositivos', async (_, res) => {
 ═══════════════════════════════════════════════════════════ */
 app.get('/api/historico/:device', async (req, res) => {
   try {
+    const colunas = await obterColunasTelemetria();
+    const dispositivo = colunaDispositivo(colunas);
+    const ordenacao = colunaOrdenacao(colunas);
+    const possuiDataCriacao = colunas.has('created_at');
     // Suporta filtro por tempo via query.
     // periodo: '1h' | '6h' | '24h' | '7d'
     // janela/segundos/seconds: janela livre em segundos (ex.: 40)
@@ -209,24 +254,24 @@ app.get('/api/historico/:device', async (req, res) => {
     let sql;
     let params;
 
-    if (hasJanela) {
-      sql = `SELECT * FROM telemetria
-         WHERE device = $1
-           AND created_at >= now() - ($3 * interval '1 second')
-         ORDER BY id DESC
+    if (hasJanela && possuiDataCriacao) {
+      sql = `SELECT *, ${identificador(dispositivo)} AS device FROM telemetria
+         WHERE ${identificador(dispositivo)} = $1
+           AND "created_at" >= now() - ($3 * interval '1 second')
+         ORDER BY ${identificador(ordenacao)} DESC
          LIMIT $2`;
       params = [req.params.device, limit, janelaSeg];
-    } else if (hasPeriodo) {
-      sql = `SELECT * FROM telemetria
-         WHERE device = $1
-           AND created_at >= ${sinceExpr}
-         ORDER BY id DESC
+    } else if (hasPeriodo && possuiDataCriacao) {
+      sql = `SELECT *, ${identificador(dispositivo)} AS device FROM telemetria
+         WHERE ${identificador(dispositivo)} = $1
+           AND "created_at" >= ${sinceExpr}
+         ORDER BY ${identificador(ordenacao)} DESC
          LIMIT $2`;
       params = [req.params.device, limit];
     } else {
-      sql = `SELECT * FROM telemetria
-         WHERE device = $1
-         ORDER BY id DESC
+      sql = `SELECT *, ${identificador(dispositivo)} AS device FROM telemetria
+         WHERE ${identificador(dispositivo)} = $1
+         ORDER BY ${identificador(ordenacao)} DESC
          LIMIT $2`;
       params = [req.params.device, limit];
     }

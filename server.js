@@ -212,7 +212,7 @@ app.get('/api/dashboard', async (_, res) => {
        FROM telemetria
        ORDER BY ${identificador(dispositivo)}, ${identificador(ordenacao)} DESC`
     );
-    res.json(result.rows);
+    res.json(normalizarTelemetria(result.rows));
   } catch (e) { fail(res, e); }
 });
 

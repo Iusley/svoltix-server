@@ -36,8 +36,8 @@ body {
   color: #19334f;
   font-size: 13px;
 }
-body.dark { background:#07101d; color:#dce9f6; }
-body.dark .panel, body.dark .equipment-health, body.dark .btn.ghost, body.dark .input, body.dark .select, body.dark .layout-drawer, body.dark .layout-drawer-item { background:#102035; color:#dce9f6; border-color:#29435f; }
+html:has(body.dark), body.dark, body.dark .content, body.dark .view { background:#07101d; color:#dce9f6; }
+body.dark .panel, body.dark .equipment-health, body.dark .home-context, body.dark .btn.ghost, body.dark .input, body.dark .select, body.dark .layout-drawer, body.dark .layout-drawer-item, body.dark .chart-fullscreen { background:#102035; color:#dce9f6; border-color:#29435f; }
 body.dark .panel-hd, body.dark h1, body.dark .metric-line b, body.dark .power { color:#7dd3fc; }
 body.dark .label, body.dark .muted, body.dark .health-detail { color:#a8bbd0; }
 body.dark th { background:#172b43; color:#c4d5e8; }
@@ -382,6 +382,8 @@ tbody tr:hover { background: #edf8fb; }
 .health-badge.offline { color: #ad2626; background: #ffe1e1; }
 .health-detail { color: #5d6f86; font-size: 11px; }
 .device-edit {
+  width: 92px;
+  justify-content: center;
   height: 25px;
   margin-left: 8px;
   padding: 0 8px;
@@ -390,6 +392,7 @@ tbody tr:hover { background: #edf8fb; }
 }
 .custom-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; }
 .custom-grid > .component { grid-column:span 4; }
+.custom-grid > .component.medium { grid-column:span 6; }
 .custom-grid > .component.wide { grid-column:span 12; }
 .custom-grid > .component.kpi-component { grid-column:span 3; }
 .home-context { display:flex; align-items:end; gap:8px; flex-wrap:wrap; padding:12px; margin-bottom:12px; background:#fff; border:1px solid #d8e2ec; border-radius:var(--radius); box-shadow:0 1px 7px rgba(16,28,48,.06); }
@@ -420,10 +423,13 @@ tbody tr:hover { background: #edf8fb; }
 .layout-drawer-tabs span { padding:7px 10px; border-radius:999px; background:#e6eef6; color:#42617f; font-weight:800; font-size:11px; }
 .layout-drawer-tabs span.active { background:#23628f; color:white; }
 .component-meta { color:#71869d; display:block; font-size:10px; font-weight:500; margin-top:3px; }
-.layout-mode .component { position:relative; cursor:grab; outline:2px dashed transparent; outline-offset:4px; }
+.layout-mode .component { position:relative; cursor:grab; outline:2px dashed transparent; outline-offset:4px; min-width:0; }
 .layout-mode .component:hover { outline-color:#38bdf8; }
 .layout-mode .component.dragging { opacity:.45; }
 .layout-mode .component.drag-over { outline-color:#16a6ba; background:#e6f8fb; }
+.resize-handle { display:none; position:absolute; z-index:4; width:12px; height:12px; border:2px solid #fff; border-radius:3px; background:#2563a5; box-shadow:0 1px 4px rgba(0,0,0,.22); touch-action:none; }
+.layout-mode .resize-handle { display:block; }
+.resize-handle.nw { top:-6px; left:-6px; cursor:nwse-resize; }.resize-handle.ne { top:-6px; right:-6px; cursor:nesw-resize; }.resize-handle.sw { bottom:-6px; left:-6px; cursor:nesw-resize; }.resize-handle.se { right:-6px; bottom:-6px; cursor:nwse-resize; }
 .layout-drawer-backdrop { position:fixed; inset:0; background:rgba(7,21,38,.28); z-index:60; }
 .layout-drawer { position:fixed; z-index:61; top:0; right:0; width:min(390px,100vw); height:100vh; overflow:auto; background:#f5f8fc; box-shadow:-12px 0 30px rgba(10,27,54,.2); padding:20px; }
 .layout-drawer-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding-bottom:16px; border-bottom:1px solid #dbe6ef; }
@@ -564,7 +570,7 @@ tbody tr:hover { background: #edf8fb; }
   .main { margin-left: 0; width: 100%; }
   .mobile-menu { display: inline-flex; }
   .grid-4, .grid-3, .grid-2, .cfg-grid, .download-layout, .tree-layout { grid-template-columns: 1fr; }
-  .custom-grid > .component, .custom-grid > .component.wide, .custom-grid > .component.kpi-component { grid-column:span 12; }
+  .custom-grid > .component, .custom-grid > .component.medium, .custom-grid > .component.wide, .custom-grid > .component.kpi-component { grid-column:span 12; }
   .form-grid { grid-template-columns: 1fr 1fr; }
   .gauge-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -708,6 +714,31 @@ function soltarLayout(event, destino){
   renderHome();
 }
 function finalizarArrasteLayout(){ document.querySelectorAll('.component').forEach(item => item.classList.remove('dragging','drag-over')); }
+function iniciarRedimensionamentoLayout(event, indice){
+  if (!editandoLayout) return;
+  event.preventDefault(); event.stopPropagation();
+  const componente = event.currentTarget.closest('.component');
+  const inicioX = event.clientX;
+  const tamanhoInicial = componente.classList.contains('wide') ? 'largo' : componente.classList.contains('medium') ? 'medio' : 'normal';
+  const larguraInicial = componente.getBoundingClientRect().width;
+  const atualizar = movimento => {
+    const largura = larguraInicial + (movimento.clientX - inicioX);
+    const tamanho = largura > window.innerWidth * .70 ? 'largo' : largura > window.innerWidth * .38 ? 'medio' : 'normal';
+    componente.classList.toggle('wide', tamanho === 'largo');
+    componente.classList.toggle('medium', tamanho === 'medio');
+    componente.classList.toggle('resizing', true);
+    componente.dataset.novoTamanho = tamanho;
+  };
+  const concluir = () => {
+    window.removeEventListener('pointermove', atualizar);
+    window.removeEventListener('pointerup', concluir);
+    const tamanho = componente.dataset.novoTamanho || tamanhoInicial;
+    componente.classList.remove('resizing');
+    if (tamanho !== tamanhoInicial) alterarItemLayout(indice, 'tamanho', tamanho);
+  };
+  window.addEventListener('pointermove', atualizar);
+  window.addEventListener('pointerup', concluir, { once:true });
+}
 function restaurarLayoutPadrao(){
   const id = ensureSelectedDevice();
   layoutsPorEquipamento[id] = layoutPadrao();
@@ -955,7 +986,7 @@ function makeLine(id, labels, datasets, yTitle='', tipo='line'){
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode:'index', intersect:false },
-      plugins: { legend: { labels: { color:texto } } },
+      plugins: { legend: { position:'top', align:'end', labels: { color:texto, usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:16, font:{ size:11, weight:'600' } } }, tooltip:{ padding:10, titleFont:{weight:'700'}, bodyFont:{weight:'600'} } },
       scales: {
         x: { grid: { color:grade }, ticks:{ color:texto, maxTicksLimit: 9 } },
         y: { beginAtZero:true, title:{ display:!!yTitle, text:yTitle, color:texto }, grid: { color:grade }, ticks:{ color:texto } }
@@ -1029,7 +1060,7 @@ function renderHomeLegado(){
     detalhes: `<div class="cards grid-3">${panel('Eficiencia', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b style="color:#fbbf24;font-size:20px">0 kWh</b><span style="color:#fbbf24">Consumo previsto nesse horario.</span></div>')}${panel('Metricas de consumo', `<div class="metric-list"><div class="metric-line"><span>Media diaria</span><b>${num(t.monthKwh/30,0)} kWh</b></div><div class="metric-line"><span>Maior consumo</span><b>${num(Math.max(t.todayKwh,60),0)} kWh</b></div><div class="metric-line"><span>Menor consumo</span><b>0 kWh</b></div></div>`)}${panel('Alertas', `<div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>${meterStatusOf(selected) === 'offline' ? 'ATIVO' : 'SEM ALERTA'}</span></div><div class="alert-body"><b>${meterStatusOf(selected) === 'offline' ? 'Multimedidor indisponivel' : 'Multimedidor operante'}</b><p>${meterStatusOf(selected) === 'offline' ? `O SVoltix ${selectedName} esta online, mas nao recebe leitura valida do multimedidor.` : `O SVoltix ${selectedName} esta recebendo leituras validas do multimedidor.`}</p></div><div class="alert-foot"><span>${tempoSemLeitura(selected) || 'Leitura valida atual'}</span><span>${deviceId(selected)}</span></div></div>`)}</div>`
   };
   const editor = editandoLayout ? `<div class="layout-drawer-backdrop" onclick="alternarEditorLayout()"></div><aside class="layout-drawer"><div class="layout-drawer-head"><div><h2>Personalizar painel</h2><p>${selectedName} · alterações salvas automaticamente</p></div><button class="btn icon ghost" onclick="alternarEditorLayout()">×</button></div><div class="layout-drawer-list">${layout.itens.map((item, indice) => `<div class="layout-drawer-item"><span class="drag-handle">⠿</span><input type="checkbox" ${item.visivel ? 'checked' : ''} onchange="alterarItemLayout(${indice},'visivel',this.checked)"><b>${item.nome}</b><select onchange="alterarItemLayout(${indice},'tamanho',this.value)"><option value="normal" ${item.tamanho === 'normal' ? 'selected' : ''}>Normal</option><option value="largo" ${item.tamanho === 'largo' ? 'selected' : ''}>Largo</option></select><button class="btn ghost" onclick="moverItemLayout(${indice},-1)" title="Mover para cima">↑</button><button class="btn ghost" onclick="moverItemLayout(${indice},1)" title="Mover para baixo">↓</button></div>`).join('')}</div><div class="layout-drawer-actions"><button class="btn ghost" onclick="restaurarLayoutPadrao()">Restaurar</button><button class="btn" onclick="salvarLayout()">Concluir</button></div></aside>` : '';
-  const componentes = layout.itens.map((item, indice) => item.visivel ? `<div class="component ${item.tamanho === 'largo' ? 'wide' : ''}" ${editandoLayout ? `draggable="true" ondragstart="iniciarArrasteLayout(event,${indice})" ondragover="permitirSoltarLayout(event)" ondragleave="limparSoltarLayout(event)" ondrop="soltarLayout(event,${indice})" ondragend="finalizarArrasteLayout()"` : ''}>${blocos[item.id] || ''}</div>` : '').join('');
+  const componentes = layout.itens.map((item, indice) => item.visivel ? `<div class="component ${item.tamanho === 'largo' ? 'wide' : item.tamanho === 'medio' ? 'medium' : ''}" ${editandoLayout ? `draggable="true" ondragstart="iniciarArrasteLayout(event,${indice})" ondragover="permitirSoltarLayout(event)" ondragleave="limparSoltarLayout(event)" ondrop="soltarLayout(event,${indice})" ondragend="finalizarArrasteLayout()"` : ''}>${blocos[item.id] || ''}${editandoLayout ? ['nw','ne','sw','se'].map(canto => `<button class="resize-handle ${canto}" aria-label="Redimensionar ${item.nome}" onpointerdown="iniciarRedimensionamentoLayout(event,${indice})"></button>`).join('') : ''}</div>` : '').join('');
   document.getElementById('view-home').innerHTML = `
     <div class="toolbar" style="margin-bottom:14px">
       <button class="btn ghost" onclick="editarNomeEquipamento('${deviceId(selected).replace(/'/g, "\\'")}')">${svg('home')} ${selectedName}</button>
@@ -1069,7 +1100,7 @@ function renderHome(){
     medicoes: panel('Ultimas medicoes', '<div class="mini-table" id="homeMeasurements"><div class="empty">Carregando medicoes...</div></div>')
   };
   const editor = editandoLayout ? `<div class="layout-drawer-backdrop" onclick="alternarEditorLayout()"></div><aside class="layout-drawer"><div class="layout-drawer-head"><div><h2>Lista de componentes</h2><p>${selectedName} · alteracoes salvas por equipamento</p></div><button class="btn icon ghost" onclick="alternarEditorLayout()">×</button></div><div class="layout-drawer-tabs"><span class="active">Energia</span><span>Agua</span><span>Producao</span></div><div class="layout-drawer-list">${layout.itens.map((item, indice) => `<div class="layout-drawer-item"><span class="drag-handle" title="Arraste para reorganizar">⠿</span><input type="checkbox" aria-label="Exibir ${item.nome}" ${item.visivel ? 'checked' : ''} onchange="alterarItemLayout(${indice},'visivel',this.checked)"><div style="flex:1"><b>${item.nome}</b><span class="component-meta">${item.tipo} · ${item.tamanho === 'largo' ? 'largura total' : 'card'}</span></div><select onchange="alterarItemLayout(${indice},'tamanho',this.value)"><option value="normal" ${item.tamanho === 'normal' ? 'selected' : ''}>Card</option><option value="largo" ${item.tamanho === 'largo' ? 'selected' : ''}>Largo</option></select><button class="btn ghost" onclick="moverItemLayout(${indice},-1)" title="Mover para cima">↑</button><button class="btn ghost" onclick="moverItemLayout(${indice},1)" title="Mover para baixo">↓</button></div>`).join('')}</div><div class="layout-drawer-actions"><button class="btn ghost" onclick="restaurarLayoutPadrao()">Restaurar</button><button class="btn" onclick="salvarLayout()">Salvar</button></div></aside>` : '';
-  const componentes = layout.itens.map((item, indice) => item.visivel ? `<div class="component ${item.tamanho === 'largo' ? 'wide' : ''}" ${editandoLayout ? `draggable="true" ondragstart="iniciarArrasteLayout(event,${indice})" ondragover="permitirSoltarLayout(event)" ondragleave="limparSoltarLayout(event)" ondrop="soltarLayout(event,${indice})" ondragend="finalizarArrasteLayout()"` : ''}>${blocos[item.id] || ''}</div>` : '').join('');
+  const componentes = layout.itens.map((item, indice) => item.visivel ? `<div class="component ${item.tamanho === 'largo' ? 'wide' : item.tamanho === 'medio' ? 'medium' : ''}" ${editandoLayout ? `draggable="true" ondragstart="iniciarArrasteLayout(event,${indice})" ondragover="permitirSoltarLayout(event)" ondragleave="limparSoltarLayout(event)" ondrop="soltarLayout(event,${indice})" ondragend="finalizarArrasteLayout()"` : ''}>${blocos[item.id] || ''}${editandoLayout ? ['nw','ne','sw','se'].map(canto => `<button class="resize-handle ${canto}" aria-label="Redimensionar ${item.nome}" onpointerdown="iniciarRedimensionamentoLayout(event,${indice})"></button>`).join('') : ''}</div>` : '').join('');
   document.getElementById('view-home').innerHTML = `
     <div class="home-context">
       <div class="field"><label class="label">Empresa / equipamento</label><select class="select" onchange="setSelectedDevice(this.value)">${deviceOptions()}</select></div>
@@ -1357,11 +1388,9 @@ async function drawHome(){
   const porHora = Array.from({length:24}, () => []);
   leiturasHome.forEach(linha => { const instante = new Date(linha.created_at); if (!Number.isNaN(instante.getTime())) porHora[instante.getHours()].push(Number(linha[grandezaHome] || 0) / meta.divisor); });
   const valores = porHora.map(amostras => amostras.length ? amostras.reduce((s,v)=>s+v,0)/amostras.length : null);
-  const media = valores.map(v => v === null ? null : valores.filter(x => x !== null).reduce((s,x)=>s+x,0) / Math.max(1,valores.filter(x => x !== null).length));
   const tipo = visualizacaoHome === 'barras' ? 'bar' : 'line';
   makeLine('homeDemand', labels, [
-    { label:meta.titulo, data:valores, borderColor:'#23628f', backgroundColor:visualizacaoHome==='area' ? 'rgba(35,98,143,.22)' : 'rgba(35,98,143,.68)', tension:.35, fill:visualizacaoHome==='area', spanGaps:false, borderWidth:2 },
-    ...(visualizacaoHome === 'area' ? [{ label:'Media', data:media, borderColor:'#f35b4b', borderWidth:2, tension:.35, fill:false, pointRadius:0, spanGaps:false }] : [])
+    { label:meta.titulo, data:valores, borderColor:'#23628f', backgroundColor:visualizacaoHome==='area' ? 'rgba(35,98,143,.22)' : 'rgba(35,98,143,.68)', tension:.35, fill:visualizacaoHome==='area', spanGaps:false, borderWidth:2, pointRadius:visualizacaoHome === 'linha' ? 2 : 0, pointHoverRadius:4 }
   ], meta.unidade, tipo);
   preencherWidgetsHome(leiturasHome);
   const status = document.getElementById('homeDemandStatus');

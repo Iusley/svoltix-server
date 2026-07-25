@@ -1051,41 +1051,54 @@ function atualizarFiltrosDashboard(){
   buscaDashboard = (document.getElementById('dashboardSearch')?.value || '').trim().toLowerCase();
   filtroComunicacaoDashboard = document.getElementById('dashboardCommunication')?.value || 'todos';
   filtroMedidorDashboard = document.getElementById('dashboardMeter')?.value || 'todos';
-  renderDashboards();
+  aplicarFiltrosNaTabelaDashboard();
 }
 function limparFiltrosDashboard(){
   buscaDashboard = ''; filtroComunicacaoDashboard = 'todos'; filtroMedidorDashboard = 'todos';
-  renderDashboards();
+  const busca = document.getElementById('dashboardSearch'); if (busca) busca.value = '';
+  const comunicacao = document.getElementById('dashboardCommunication'); if (comunicacao) comunicacao.value = 'todos';
+  const medidor = document.getElementById('dashboardMeter'); if (medidor) medidor.value = 'todos';
+  aplicarFiltrosNaTabelaDashboard();
+}
+function aplicarFiltrosNaTabelaDashboard(){
+  const linhas = [...document.querySelectorAll('#dashboardTableBody tr[data-dashboard-row]')];
+  let visiveis = 0;
+  linhas.forEach(linha => {
+    const corresponde = (!buscaDashboard || linha.dataset.search.includes(buscaDashboard))
+      && (filtroComunicacaoDashboard === 'todos' || linha.dataset.communication === filtroComunicacaoDashboard)
+      && (filtroMedidorDashboard === 'todos' || linha.dataset.meter === filtroMedidorDashboard);
+    linha.hidden = !corresponde;
+    if (corresponde) visiveis++;
+  });
+  const contador = document.getElementById('dashboardFilterCount');
+  if (contador) contador.textContent = `${visiveis} de ${linhas.length} equipamento(s)`;
+  const vazio = document.getElementById('dashboardNoResults');
+  if (vazio) vazio.hidden = visiveis !== 0;
 }
 function renderDashboards(){
   const equipamentos = devices.length ? devices : demoDevices();
-  const filtrados = equipamentos.filter(d => {
-    const busca = `${deviceName(d)} ${deviceId(d)}`.toLowerCase();
-    return (!buscaDashboard || busca.includes(buscaDashboard))
-      && (filtroComunicacaoDashboard === 'todos' || statusOf(d) === filtroComunicacaoDashboard)
-      && (filtroMedidorDashboard === 'todos' || meterStatusOf(d) === filtroMedidorDashboard);
-  });
-  const linhas = filtrados.map(d => {
+  const linhas = equipamentos.map(d => {
     const mensal = kwhFromW(d.pt || 0, 24 * 30);
     const id = deviceId(d).replace(/'/g, "\\'");
-    return `<tr class="dashboard-row" onclick="setSelectedDevice('${id}','home')">
+    const comunicacao = statusOf(d); const medidor = meterStatusOf(d);
+    return `<tr class="dashboard-row" data-dashboard-row data-search="${escapeHtml(`${deviceName(d)} ${deviceId(d)}`.toLowerCase())}" data-communication="${comunicacao}" data-meter="${medidor}" onclick="setSelectedDevice('${id}','home')">
       <td><div class="equipment-cell"><div class="equipment-name"><b>${escapeHtml(deviceName(d))}</b><span class="id-note">ID: ${deviceId(d)}</span></div><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button></div></td>
-      <td>${badgeSaude(statusOf(d), `SVoltix ${statusLabel(statusOf(d))}`)}</td>
-      <td>${badgeSaude(meterStatusOf(d), meterStatusLabel(d))}${tempoSemLeitura(d) ? `<span class="id-note">${tempoSemLeitura(d)}</span>` : ''}</td>
+      <td>${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}</td>
+      <td>${badgeSaude(medidor, meterStatusLabel(d))}${tempoSemLeitura(d) ? `<span class="id-note">${tempoSemLeitura(d)}</span>` : ''}</td>
       <td class="power">${svg('bolt')} ${num(kwhFromW(d.pt,1),0)} kWh</td>
       <td class="power">${svg('bolt')} ${num(mensal,0)} kWh</td>
     </tr>`;
   }).join('');
-  const textoResultado = filtrados.length === equipamentos.length ? `${equipamentos.length} equipamento(s)` : `${filtrados.length} de ${equipamentos.length} equipamento(s)`;
   document.getElementById('view-dashboards').innerHTML = `
-    <div class="page-hd"><div class="title-row"><h1 style="font-size:24px;color:#142b44">Equipamentos monitorados</h1><span class="pill">${textoResultado}</span></div></div>
+    <div class="page-hd"><div class="title-row"><h1 style="font-size:24px;color:#142b44">Equipamentos monitorados</h1><span class="pill" id="dashboardFilterCount">${equipamentos.length} equipamento(s)</span></div></div>
     <div class="toolbar" style="margin-bottom:12px">
       <div class="field" style="max-width:310px"><label class="label">Buscar equipamento</label><input id="dashboardSearch" class="input" value="${escapeHtml(buscaDashboard)}" placeholder="Nome ou ID" oninput="atualizarFiltrosDashboard()"></div>
       <div class="field" style="max-width:180px"><label class="label">Comunicacao</label><select id="dashboardCommunication" class="select" onchange="atualizarFiltrosDashboard()"><option value="todos">Todas</option><option value="online" ${filtroComunicacaoDashboard==='online'?'selected':''}>Online</option><option value="warning" ${filtroComunicacaoDashboard==='warning'?'selected':''}>Atencao</option><option value="offline" ${filtroComunicacaoDashboard==='offline'?'selected':''}>Offline</option></select></div>
       <div class="field" style="max-width:210px"><label class="label">Multimedidor</label><select id="dashboardMeter" class="select" onchange="atualizarFiltrosDashboard()"><option value="todos">Todos</option><option value="online" ${filtroMedidorDashboard==='online'?'selected':''}>Operante</option><option value="warning" ${filtroMedidorDashboard==='warning'?'selected':''}>Sem diagnostico</option><option value="offline" ${filtroMedidorDashboard==='offline'?'selected':''}>Indisponivel</option></select></div>
       <button class="btn ghost" onclick="limparFiltrosDashboard()">Limpar filtros</button>
     </div>
-    <div class="panel table-wrap"><table><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody>${linhas || `<tr><td colspan="5"><div class="empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr>`}</tbody></table></div>`;
+    <div class="panel table-wrap"><table><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="5"><div class="empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>`;
+  aplicarFiltrosNaTabelaDashboard();
 }
 function setDataDemanda(data){
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data || '')) return;

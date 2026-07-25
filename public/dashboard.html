@@ -368,6 +368,13 @@ tbody tr:hover { background: #edf8fb; }
 .health-badge.warning { color: #975d00; background: #fff1c8; }
 .health-badge.offline { color: #ad2626; background: #ffe1e1; }
 .health-detail { color: #5d6f86; font-size: 11px; }
+.device-edit {
+  height: 25px;
+  margin-left: 8px;
+  padding: 0 8px;
+  font-size: 10px;
+  vertical-align: middle;
+}
 .dashboard-row { cursor: pointer; }
 .alert-card {
   background: #23628f;
@@ -601,6 +608,10 @@ function deviceName(d){
   const id = deviceId(d);
   return groupNames[id] || d.nome_grupo || id;
 }
+function contextoEquipamento(){
+  const equipamento = currentDevice();
+  return `<span class="pill">${deviceName(equipamento)}</span><span class="pill hide-sm">ID ${deviceId(equipamento)}</span>`;
+}
 function deviceList(){
   return devices.length ? devices : demoDevices();
 }
@@ -639,6 +650,13 @@ function statusOf(d){
   if (age < 35) return 'online';
   if (age < 90) return 'warning';
   return 'offline';
+}
+function editarNomeEquipamento(id){
+  selectedDeviceId = id;
+  selectedCfgDevice = id;
+  localStorage.setItem('svoltix_device', id);
+  renderAll();
+  go('config');
 }
 function statusLabel(s){ return s === 'online' ? 'Online' : s === 'warning' ? 'Atencao' : 'Offline'; }
 function meterStatusOf(d){
@@ -776,7 +794,7 @@ function renderDashboards(){
     const comunicacao = statusOf(d);
     const medidor = meterStatusOf(d);
     return `<tr class="dashboard-row" onclick="setSelectedDevice('${deviceId(d).replace(/'/g, "\\'")}','home')">
-      <td>${deviceName(d)}${groupNames[deviceId(d)] ? `<span class="id-note">ID: ${deviceId(d)}</span>` : ''}</td>
+      <td>${deviceName(d)}${groupNames[deviceId(d)] ? `<span class="id-note">ID: ${deviceId(d)}</span>` : ''}<button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${deviceId(d).replace(/'/g, "\\'")}')">Editar nome</button></td>
       <td>${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}</td>
       <td>${badgeSaude(medidor, meterStatusLabel(d))}${tempoSemLeitura(d) ? `<span class="id-note">${tempoSemLeitura(d)}</span>` : ''}</td>
       <td class="power">${svg('bolt')} ${num(kwhFromW(d.pt,1),0)} kWh</td>
@@ -798,6 +816,7 @@ function renderHome(){
   document.getElementById('view-home').innerHTML = `
     <div class="toolbar" style="margin-bottom:14px">
       <button class="btn ghost">${svg('home')} ${selectedName}</button>
+      <button class="btn ghost" onclick="editarNomeEquipamento('${deviceId(selected).replace(/'/g, "\\'")}')">Editar nome</button>
       <div class="seg"><button>Custo</button><button class="active">Consumo</button></div>
       <div class="seg"><button class="active">Hoje</button><button>Mes</button><button>Ano</button></div>
       <span style="flex:1"></span><button class="btn">Personalizar ${svg('gear')}</button>
@@ -868,13 +887,13 @@ function renderFaturamento(){
     return `<tr><td>${m}/2026</td><td><input value="0${Math.max(1,i+1)}/01/2026"></td><td><input value="01/${String(i+1).padStart(2,'0')}/2026"></td><td><button class="btn icon">${svg('calendar')}</button></td><td>${num(cons,2)} kWh</td><td>${money(cons * 1.23)}</td><td><button class="btn icon">${svg('search')}</button></td></tr>`;
   }).join('');
   document.getElementById('view-faturamento').innerHTML = `
-    ${pageTitle('card','Faturamento')}
+    ${pageTitle('card','Faturamento',contextoEquipamento())}
     <div class="toolbar" style="margin-bottom:14px"><button class="btn">Ano</button><input class="input" style="width:120px" value="2026"><button class="btn icon">${svg('calendar')}</button></div>
     <div class="panel table-wrap"><table class="billing-table"><thead><tr><th>Mes</th><th>Inicio</th><th>Fim</th><th></th><th>Consumo</th><th>Valor</th><th>Opcoes</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function renderGeracao(){
   document.getElementById('view-geracao').innerHTML = `
-    ${pageTitle('gear','Minha Geracao')}
+    ${pageTitle('gear','Minha Geracao',contextoEquipamento())}
     <div class="form-grid">
       <div class="field"><label class="label">Area</label><select class="select"><option>KWM</option><option>Bebezinho</option></select></div>
       <div class="field"><label class="label">Dia inicial</label><input class="input" type="date" value="${today()}"></div>
@@ -885,7 +904,7 @@ function renderGeracao(){
 }
 function renderRelatorios(){
   document.getElementById('view-relatorios').innerHTML = `
-    ${pageTitle('file','Relatorios','<span class="pill">Energia</span>')}
+    ${pageTitle('file','Relatorios',`<span class="pill">Energia</span>${contextoEquipamento()}`)}
     <div class="form-grid">
       <div class="field"><label class="label">Secoes</label><select class="select"><option>Tabela de Custo e Consumo</option><option>Resumo executivo</option></select></div>
       <div class="field"><label class="label">Area</label><select class="select"><option>Bebezinho</option></select></div>
@@ -898,7 +917,7 @@ function renderRelatorios(){
 function renderAlertas(){
   const rows = Array.from({length:12}, (_,i) => `<tr><td><input type="checkbox"></td><td>${String(8-i).padStart(2,'0')} de junho de 2026 00:00:00</td><td><b>Medidor offline</b></td><td>Ola, IST EFICIENCIA. Voce tem um novo alerta: Medidor indisponivel.</td><td><input type="checkbox"></td></tr>`).join('');
   document.getElementById('view-alertas').innerHTML = `
-    ${pageTitle('bell','Alertas','<button class="btn">+ Criar alerta</button><span class="pill">Energia</span>')}
+    ${pageTitle('bell','Alertas',`<button class="btn">+ Criar alerta</button><span class="pill">Energia</span>${contextoEquipamento()}`)}
     ${notice('Gerencie e visualize alertas para energia. Receba notificacoes em tempo real em seu e-mail ou WhatsApp.')}
     <h2 class="section-title">Alertas cadastrados</h2>
     <div class="panel table-wrap" style="margin-bottom:14px"><table><thead><tr><th>Habilitado</th><th>Descricao</th><th>Condicao</th><th>Area / Medidor</th><th>Editar</th><th>Remover</th></tr></thead><tbody><tr><td><input type="checkbox" checked></td><td>Medidor offline</td><td>Medidor indisponivel</td><td>${deviceName(currentDevice())}</td><td>editar</td><td><button class="btn icon orange">x</button></td></tr></tbody></table></div>
@@ -908,7 +927,7 @@ function renderAlertas(){
 }
 function renderDownloads(){
   document.getElementById('view-downloads').innerHTML = `
-    ${pageTitle('download','Downloads','<span class="pill">Energia</span>')}
+    ${pageTitle('download','Downloads',`<span class="pill">Energia</span>${contextoEquipamento()}`)}
     ${notice('Preencha os campos abaixo para realizar o download dos dados em CSV.')}
     <div class="download-layout">
       <section class="panel"><div class="panel-body">
@@ -931,7 +950,7 @@ function renderConfig(){
   const tree = list.map((d)=>`<div class="tree-group">${deviceName(d)}</div><button class="tree-item ${deviceId(d)===selectedId?'active':''}" onclick="selectCfgDevice('${deviceId(d).replace(/'/g, "\\'")}')">${svg('bolt')} <span>${deviceId(d)}</span></button>`).join('');
   document.getElementById('view-config').innerHTML = `
     ${pageTitle('gear','Configuracoes')}
-    ${notice('Tela de configuracoes da plataforma, onde podemos definir opcoes de tarifas, metas de consumo e outros itens.')}
+    ${notice('O nome definido aqui identifica este equipamento em todas as abas. O ID de fabrica permanece preservado para a comunicacao.')}
     <div class="tree-layout">
       <aside class="tree"><input class="input tree-search" placeholder="Buscar area ou sensor"><button class="btn ghost" style="width:100%;margin-bottom:10px">Nova area</button>${tree}</aside>
       <section>

@@ -390,6 +390,9 @@ tbody tr:hover { background: #edf8fb; }
   font-size: 10px;
   vertical-align: middle;
 }
+.equipment-cell { display:grid; grid-template-columns:minmax(0,1fr) 92px; align-items:center; gap:10px; min-width:270px; }
+.equipment-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.equipment-cell .device-edit { margin-left:0; }
 .custom-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; }
 .custom-grid > .component { grid-column:span 4; }
 .custom-grid > .component.medium { grid-column:span 6; }
@@ -1026,7 +1029,7 @@ function renderDashboards(){
     const comunicacao = statusOf(d);
     const medidor = meterStatusOf(d);
     return `<tr class="dashboard-row" onclick="setSelectedDevice('${deviceId(d).replace(/'/g, "\\'")}','home')">
-      <td>${deviceName(d)}${groupNames[deviceId(d)] ? `<span class="id-note">ID: ${deviceId(d)}</span>` : ''}<button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${deviceId(d).replace(/'/g, "\\'")}')">Editar nome</button></td>
+      <td><div class="equipment-cell"><div class="equipment-name">${escapeHtml(deviceName(d))}${groupNames[deviceId(d)] ? `<span class="id-note">ID: ${deviceId(d)}</span>` : ''}</div><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${deviceId(d).replace(/'/g, "\\'")}')">Editar nome</button></div></td>
       <td>${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}</td>
       <td>${badgeSaude(medidor, meterStatusLabel(d))}${tempoSemLeitura(d) ? `<span class="id-note">${tempoSemLeitura(d)}</span>` : ''}</td>
       <td class="power">${svg('bolt')} ${num(kwhFromW(d.pt,1),0)} kWh</td>

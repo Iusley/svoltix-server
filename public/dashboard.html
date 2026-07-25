@@ -75,15 +75,19 @@ button { cursor: pointer; }
   padding: 10px 14px;
   border-bottom: 1px solid rgba(255,255,255,.08);
 }
+.area-label { display:block; margin:0 0 6px; color:#8ba1c2; font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .area-select {
   width: 100%;
-  border: 0;
-  background: rgba(255,255,255,.04);
-  color: var(--text);
+  border: 1px solid rgba(94,234,212,.35);
+  background: #173b5d;
+  color: #fff;
   border-radius: var(--radius);
   padding: 9px 10px;
   outline: 0;
+  font-weight: 700;
 }
+.area-select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(94,234,212,.15); }
+.area-select option { background:#102a46; color:#fff; }
 .nav { padding: 8px 0; flex: 1; overflow: auto; }
 .nav-item {
   display: flex;
@@ -543,7 +547,7 @@ tbody tr:hover { background: #edf8fb; }
       <div class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h7l-1 8 10-12h-7l1-8Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" fill="rgba(94,234,212,.16)"/></svg></div>
       <div><div class="brand-name">SVoltix</div><div class="brand-sub">Monitoramento de Utilidades</div></div>
     </div>
-    <div class="area-switch"><select class="area-select" id="areaSelect" onchange="setSelectedDevice(this.value)"><option>Carregando...</option></select></div>
+    <div class="area-switch"><span class="area-label">Empresa / equipamento</span><select class="area-select" id="areaSelect" onchange="setSelectedDevice(this.value)"><option>Carregando...</option></select></div>
     <nav class="nav" id="nav"></nav>
     <div class="sidebar-footer">
       <div class="avatar">S</div>
@@ -591,6 +595,7 @@ let selectedCfgDevice = '';
 let layoutsPorEquipamento = {};
 let editandoLayout = false;
 let temporizadorSalvarLayout = null;
+let versaoSelecao = 0;
 const COMPONENTES_INICIAIS = [
   ['saude','Situacao do equipamento','painel'], ['indicadores','Indicadores de consumo','painel'],
   ['grafico','Grafico de demanda','painel'], ['detalhes','Metricas, eficiencia e alertas','painel']
@@ -736,16 +741,17 @@ function currentDevice(){
   const id = ensureSelectedDevice();
   return deviceList().find(d => deviceId(d) === id) || deviceList()[0] || {};
 }
-function setSelectedDevice(id, nextView = null){
-  if (!id) return;
+async function setSelectedDevice(id, nextView = null){
+  if (!id || !deviceList().some(device => deviceId(device) === id)) return;
   selectedDeviceId = id;
   selectedCfgDevice = id;
   localStorage.setItem('svoltix_device', id);
-  carregarLayoutAtual().finally(() => {
-    renderAll();
-    if (nextView) go(nextView);
-    else syncSelectionControls();
-  });
+  const versaoAtual = ++versaoSelecao;
+  await carregarLayoutAtual();
+  if (versaoAtual !== versaoSelecao) return;
+  renderAll();
+  if (nextView) go(nextView);
+  else syncSelectionControls();
 }
 function syncSelectionControls(){
   const id = ensureSelectedDevice();
@@ -815,7 +821,7 @@ function renderAreaSelect(){
   const select = document.getElementById('areaSelect');
   if (!select) return;
   const selected = ensureSelectedDevice();
-  select.innerHTML = deviceList().map(d => `<option value="${deviceId(d)}">${deviceName(d)}</option>`).join('');
+  select.innerHTML = deviceList().map(d => `<option value="${deviceId(d)}">${deviceName(d)} · ${deviceId(d)}</option>`).join('');
   if ([...select.options].some(o => o.value === selected)) select.value = selected;
 }
 function pageTitle(icon, title, extra=''){
@@ -890,7 +896,7 @@ function fakeSeries(field='pt', len=14){
   });
 }
 function controlsHtml(){
-  const options = devices.map(d => `<option value="${deviceId(d)}">${deviceName(d)}</option>`).join('');
+  const options = deviceOptions();
   return `<div class="filters">
     <div class="field"><label class="label">Grandeza</label><select class="select" id="metricSelect"><option value="pt">Potencia Ativa</option><option value="va">Tensao A</option><option value="ia">Corrente A</option><option value="fpt">Fator de Potencia</option><option value="hz">Frequencia</option></select></div>
     <div class="field"><label class="label">Medidor</label><select class="select" id="deviceSelect" onchange="setSelectedDevice(this.value)">${options || '<option>SVX-EQUIPAMENTO</option>'}</select></div>
@@ -940,7 +946,6 @@ function renderHome(){
       <div class="seg"><button class="active">Hoje</button><button>Mes</button><button>Ano</button></div>
       <span style="flex:1"></span><button class="btn" onclick="alternarEditorLayout()">${editandoLayout ? 'Fechar' : 'Personalizar'} ${svg('gear')}</button>
     </div>
-    ${editor}
     <div class="custom-grid ${editandoLayout ? 'layout-mode' : ''}">${componentes}</div>
     ${editor}`;
   drawHome();
@@ -1073,7 +1078,8 @@ function renderConfig(){
 }
 function deviceOptions(){
   const list = devices.length ? devices : demoDevices();
-  return list.map(d => `<option value="${deviceId(d)}">${deviceName(d)}</option>`).join('');
+  const selecionado = ensureSelectedDevice();
+  return list.map(d => `<option value="${deviceId(d)}" ${deviceId(d) === selecionado ? 'selected' : ''}>${deviceName(d)} · ${deviceId(d)}</option>`).join('');
 }
 function demoDevices(){
   return ['SVX-ENERGIA-001','SVX-ENERGIA-002','SVX-ENERGIA-003','SVX-ENERGIA-004','SVX-ENERGIA-005','SVX-ENERGIA-006','SVX-ENERGIA-007','SVX-ENERGIA-008','SVX-ENERGIA-009','SVX-ENERGIA-010','SVX-ENERGIA-011','SVX-ENERGIA-012'].map((device,i)=>({ device, pt: i % 4 ? (i+1)*52 : 0, pa:(i+1)*12, pb:(i+1)*9, pc:(i+1)*7, va:220+i, vb:219+i, vc:221+i, ia:i*.7, ib:i*.5, ic:i*.6, fpt:.91, hz:60, tc:31+i/3, created_at: new Date(Date.now()-i*17000).toISOString() }));
@@ -1138,7 +1144,10 @@ function rowLabels(rows){
 }
 async function drawMonitor(){
   const selected = document.getElementById('deviceSelect')?.value || ensureSelectedDevice();
-  if (selected !== selectedDeviceId) setSelectedDevice(selected);
+  if (selected !== selectedDeviceId) {
+    selectedDeviceId = selected;
+    localStorage.setItem('svoltix_device', selected);
+  }
   const metric = document.getElementById('metricSelect')?.value || 'pt';
   const windowInput = document.getElementById('monitorWindow');
   const seconds = Math.min(Math.max(parseInt(windowInput?.value, 10) || 30, 1), 30 * 24 * 3600);
@@ -1174,7 +1183,10 @@ async function drawMonitor(){
 }
 async function loadHistory(){
   const dev = document.getElementById('histDevice')?.value || ensureSelectedDevice();
-  if (dev !== selectedDeviceId) setSelectedDevice(dev);
+  if (dev !== selectedDeviceId) {
+    selectedDeviceId = dev;
+    localStorage.setItem('svoltix_device', dev);
+  }
   const metric = document.getElementById('histMetric')?.value || 'pt';
   const seconds = Math.min(Math.max(parseInt(document.getElementById('histWindow')?.value, 10) || 300, 1), 30 * 24 * 3600);
   localStorage.setItem('svoltix_window_seconds', seconds);
@@ -1192,7 +1204,10 @@ async function loadHistory(){
 }
 async function drawAnalysis(){
   const dev = document.getElementById('anaDevice')?.value || ensureSelectedDevice();
-  if (dev !== selectedDeviceId) setSelectedDevice(dev);
+  if (dev !== selectedDeviceId) {
+    selectedDeviceId = dev;
+    localStorage.setItem('svoltix_device', dev);
+  }
   let rows = [];
   try { rows = await fetchHistoryByWindow(selectedDeviceId, localStorage.getItem('svoltix_window_seconds') || 300); }
   catch { rows = [currentDevice()]; }

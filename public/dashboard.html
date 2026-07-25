@@ -344,6 +344,14 @@ h1 {
   color: #5d6f86;
   text-align: center;
 }
+.dashboard-empty {
+  min-height:52px;
+  padding:14px 12px;
+  color:#71849a;
+  text-align:center;
+  font-size:12px;
+  font-weight:600;
+}
 .table-wrap { overflow: auto; }
 table { width: 100%; border-collapse: collapse; min-width: 760px; }
 th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2ebf3; }
@@ -1123,7 +1131,7 @@ function renderDashboards(){
       <div class="field" style="max-width:210px"><label class="label">Multimedidor</label><select id="dashboardMeter" class="select" onchange="atualizarFiltrosDashboard()"><option value="todos">Todos</option><option value="online" ${filtroMedidorDashboard==='online'?'selected':''}>Operante</option><option value="warning" ${filtroMedidorDashboard==='warning'?'selected':''}>Sem diagnostico</option><option value="offline" ${filtroMedidorDashboard==='offline'?'selected':''}>Indisponivel</option></select></div>
       <button class="btn ghost" onclick="limparFiltrosDashboard()">Limpar filtros</button>
     </div>
-    <div class="panel table-wrap"><table><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="5"><div class="empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>`;
+    <div class="panel table-wrap"><table><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="5"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>`;
   aplicarFiltrosNaTabelaDashboard();
 }
 function setDataDemanda(data){

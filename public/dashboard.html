@@ -339,6 +339,35 @@ tbody tr:hover { background: #edf8fb; }
 .status-dot.online { background: var(--online); }
 .status-dot.warning { background: var(--warning); }
 .status-dot.offline { background: var(--danger); }
+.equipment-health {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #d8e2ec;
+  border-left: 4px solid var(--online);
+  border-radius: var(--radius);
+  background: white;
+}
+.equipment-health.meter-fault { border-left-color: var(--danger); }
+.health-title { color: #19334f; font-weight: 800; margin-right: 4px; }
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 25px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.health-badge.online { color: #087a58; background: #d9f8ea; }
+.health-badge.warning { color: #975d00; background: #fff1c8; }
+.health-badge.offline { color: #ad2626; background: #ffe1e1; }
+.health-detail { color: #5d6f86; font-size: 11px; }
 .dashboard-row { cursor: pointer; }
 .alert-card {
   background: #23628f;
@@ -612,6 +641,37 @@ function statusOf(d){
   return 'offline';
 }
 function statusLabel(s){ return s === 'online' ? 'Online' : s === 'warning' ? 'Atencao' : 'Offline'; }
+function meterStatusOf(d){
+  const leituraValida = d.leituraMedidorValida;
+  if (leituraValida === true || leituraValida === 'true' || d.statusMedidor === 'ok') return 'online';
+  if (leituraValida === false || leituraValida === 'false' || d.statusMedidor === 'indisponivel') return 'offline';
+  return 'warning';
+}
+function meterStatusLabel(d){
+  const status = meterStatusOf(d);
+  return status === 'online' ? 'Multimedidor operante' : status === 'offline' ? 'Multimedidor indisponivel' : 'Sem diagnostico do multimedidor';
+}
+function tempoSemLeitura(d){
+  const segundos = Math.max(0, Number(d.tempoSemLeitura || 0));
+  if (!segundos) return '';
+  if (segundos < 60) return `${Math.floor(segundos)} s sem leitura valida`;
+  if (segundos < 3600) return `${Math.floor(segundos / 60)} min sem leitura valida`;
+  return `${Math.floor(segundos / 3600)} h sem leitura valida`;
+}
+function badgeSaude(classe, texto){
+  return `<span class="health-badge ${classe}"><span class="status-dot ${classe}"></span>${texto}</span>`;
+}
+function resumoSaudeEquipamento(d){
+  const comunicacao = statusOf(d);
+  const medidor = meterStatusOf(d);
+  const detalhe = tempoSemLeitura(d);
+  return `<div class="equipment-health ${medidor === 'offline' ? 'meter-fault' : ''}">
+    <span class="health-title">Situacao do equipamento</span>
+    ${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}
+    ${badgeSaude(medidor, meterStatusLabel(d))}
+    ${detalhe ? `<span class="health-detail">${detalhe}</span>` : ''}
+  </div>`;
+}
 function totals(){
   const selected = currentDevice();
   const source = selected && deviceId(selected) ? [selected] : deviceList();
@@ -713,8 +773,12 @@ function controlsHtml(){
 function renderDashboards(){
   const rows = (devices.length ? devices : demoDevices()).map((d, i) => {
     const mensal = kwhFromW(d.pt || (i+1)*75, 24*30);
+    const comunicacao = statusOf(d);
+    const medidor = meterStatusOf(d);
     return `<tr class="dashboard-row" onclick="setSelectedDevice('${deviceId(d).replace(/'/g, "\\'")}','home')">
       <td>${deviceName(d)}${groupNames[deviceId(d)] ? `<span class="id-note">ID: ${deviceId(d)}</span>` : ''}</td>
+      <td>${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}</td>
+      <td>${badgeSaude(medidor, meterStatusLabel(d))}${tempoSemLeitura(d) ? `<span class="id-note">${tempoSemLeitura(d)}</span>` : ''}</td>
       <td class="power">${svg('bolt')} ${num(kwhFromW(d.pt,1),0)} kWh</td>
       <td class="power">${svg('bolt')} ${num(mensal,0)} kWh</td>
       <td style="text-align:right">...</td>
@@ -725,7 +789,7 @@ function renderDashboards(){
       <div class="title-row"><h1 style="font-size:24px;color:#142b44">Meus Dashboards</h1><div class="seg"><button class="active">Todos</button><button>Energia</button></div></div>
       <div class="toolbar"><input class="input" style="width:210px" placeholder="Buscar dashboard"><button class="btn icon">${svg('chart')}</button><button class="btn icon ghost">${svg('file')}</button></div>
     </div>
-    <div class="panel table-wrap"><table><thead><tr><th>Dashboard</th><th>Consumo Hoje</th><th>Consumo Mensal</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="panel table-wrap"><table><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo Hoje</th><th>Consumo Mensal</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function renderHome(){
   const t = totals();
@@ -738,6 +802,7 @@ function renderHome(){
       <div class="seg"><button class="active">Hoje</button><button>Mes</button><button>Ano</button></div>
       <span style="flex:1"></span><button class="btn">Personalizar ${svg('gear')}</button>
     </div>
+    ${resumoSaudeEquipamento(selected)}
     <div class="cards grid-4" style="margin-bottom:12px">
       ${kpi('bolt','Demanda agora','Dados insuficientes','Demanda maxima calculada')}
       ${kpi('clock','Consumo hoje',`${num(t.todayKwh,0)} kWh`,'Clique para visualizar consumo')}
@@ -748,7 +813,7 @@ function renderHome(){
     <div class="cards grid-3" style="margin-top:12px">
       ${panel('Eficiencia', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b style="color:#fbbf24;font-size:20px">0 kWh</b><span style="color:#fbbf24">Consumo previsto nesse horario.</span></div>')}
       ${panel('Metricas de consumo', `<div class="metric-list"><div class="metric-line"><span>Media diaria</span><b>${num(t.monthKwh/30,0)} kWh</b></div><div class="metric-line"><span>Maior consumo</span><b>${num(Math.max(t.todayKwh,60),0)} kWh</b></div><div class="metric-line"><span>Menor consumo</span><b>0 kWh</b></div></div>`)}
-      ${panel('Alertas', `<div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>VER TODOS 3</span></div><div class="alert-body"><b>Medidor offline</b><p>Nao estamos recebendo dados de consumo do medidor ${selectedName}.</p></div><div class="alert-foot"><span>08 de junho de 2026</span><span>3/3</span></div></div>`)}
+      ${panel('Alertas', `<div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>${meterStatusOf(selected) === 'offline' ? 'ATIVO' : 'SEM ALERTA'}</span></div><div class="alert-body"><b>${meterStatusOf(selected) === 'offline' ? 'Multimedidor indisponivel' : 'Multimedidor operante'}</b><p>${meterStatusOf(selected) === 'offline' ? `O SVoltix ${selectedName} esta online, mas nao recebe leitura valida do multimedidor.` : `O SVoltix ${selectedName} esta recebendo leituras validas do multimedidor.`}</p></div><div class="alert-foot"><span>${tempoSemLeitura(selected) || 'Leitura valida atual'}</span><span>${deviceId(selected)}</span></div></div>`)}
     </div>`;
   drawHome();
 }

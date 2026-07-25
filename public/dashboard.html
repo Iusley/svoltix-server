@@ -375,6 +375,15 @@ tbody tr:hover { background: #edf8fb; }
   font-size: 10px;
   vertical-align: middle;
 }
+.custom-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; }
+.custom-grid > .component { grid-column:span 4; }
+.custom-grid > .component.wide { grid-column:span 12; }
+.custom-grid > .component.kpi-component { grid-column:span 3; }
+.layout-editor { margin-bottom:12px; border:1px solid #b9d5e8; background:#eef8ff; border-radius:var(--radius); padding:12px; }
+.layout-editor-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(235px,1fr)); gap:8px; margin-top:10px; }
+.layout-editor-item { display:flex; align-items:center; gap:7px; background:white; border:1px solid #d8e2ec; border-radius:6px; padding:7px; }
+.layout-editor-item b { flex:1; font-size:12px; }
+.layout-editor-item select { width:76px; height:26px; }
 .dashboard-row { cursor: pointer; }
 .alert-card {
   background: #23628f;
@@ -504,6 +513,7 @@ tbody tr:hover { background: #edf8fb; }
   .main { margin-left: 0; width: 100%; }
   .mobile-menu { display: inline-flex; }
   .grid-4, .grid-3, .grid-2, .cfg-grid, .download-layout, .tree-layout { grid-template-columns: 1fr; }
+  .custom-grid > .component, .custom-grid > .component.wide, .custom-grid > .component.kpi-component { grid-column:span 12; }
   .form-grid { grid-template-columns: 1fr 1fr; }
   .gauge-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -570,6 +580,50 @@ let charts = {};
 let groupNames = {};
 let selectedDeviceId = localStorage.getItem('svoltix_device') || '';
 let selectedCfgDevice = '';
+let layoutsPorEquipamento = {};
+let editandoLayout = false;
+const COMPONENTES_INICIAIS = [
+  ['saude','Situacao do equipamento','painel'], ['indicadores','Indicadores de consumo','painel'],
+  ['grafico','Grafico de demanda','painel'], ['detalhes','Metricas, eficiencia e alertas','painel']
+];
+function layoutPadrao(){ return { itens: COMPONENTES_INICIAIS.map(([id,nome,tipo]) => ({id,nome,tipo,visivel:true,tamanho:id==='grafico'||id==='saude'?'largo':'normal'})) }; }
+function layoutAtual(){
+  const id = ensureSelectedDevice();
+  const salvo = layoutsPorEquipamento[id];
+  if (!salvo?.itens) return layoutPadrao();
+  const mapa = new Map(salvo.itens.map(i => [i.id,i]));
+  return { itens: COMPONENTES_INICIAIS.map(([id,nome,tipo]) => ({ id,nome,tipo,visivel:true,tamanho:'normal',...mapa.get(id) })) };
+}
+async function carregarLayoutAtual(){
+  const id = ensureSelectedDevice();
+  if (!id) return;
+  try {
+    const res = await fetch(`${API}/api/dashboard-layout/${encodeURIComponent(id)}`);
+    const data = await res.json();
+    layoutsPorEquipamento[id] = data.layout?.itens ? data.layout : layoutPadrao();
+  } catch { layoutsPorEquipamento[id] = layoutsPorEquipamento[id] || layoutPadrao(); }
+}
+function alternarEditorLayout(){ editandoLayout = !editandoLayout; renderHome(); }
+function alterarItemLayout(indice, campo, valor){
+  const layout = layoutAtual();
+  layout.itens[indice][campo] = campo === 'visivel' ? Boolean(valor) : valor;
+  layoutsPorEquipamento[ensureSelectedDevice()] = layout;
+  renderHome();
+}
+function moverItemLayout(indice, direcao){
+  const layout = layoutAtual(); const destino = indice + direcao;
+  if (destino < 0 || destino >= layout.itens.length) return;
+  [layout.itens[indice], layout.itens[destino]] = [layout.itens[destino], layout.itens[indice]];
+  layoutsPorEquipamento[ensureSelectedDevice()] = layout; renderHome();
+}
+async function salvarLayout(){
+  const id = ensureSelectedDevice(); const layout = layoutAtual();
+  try {
+    const res = await fetch(`${API}/api/dashboard-layout/${encodeURIComponent(id)}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({layout}) });
+    if (!res.ok) throw new Error('layout');
+    layoutsPorEquipamento[id] = layout; editandoLayout = false; renderHome(); toast('Layout salvo para este equipamento');
+  } catch { toast('Nao foi possivel salvar o layout'); }
+}
 
 const icons = {
   home: '<path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
@@ -633,9 +687,11 @@ function setSelectedDevice(id, nextView = null){
   selectedDeviceId = id;
   selectedCfgDevice = id;
   localStorage.setItem('svoltix_device', id);
-  renderAll();
-  if (nextView) go(nextView);
-  else syncSelectionControls();
+  carregarLayoutAtual().finally(() => {
+    renderAll();
+    if (nextView) go(nextView);
+    else syncSelectionControls();
+  });
 }
 function syncSelectionControls(){
   const id = ensureSelectedDevice();
@@ -813,27 +869,25 @@ function renderHome(){
   const t = totals();
   const selected = currentDevice();
   const selectedName = deviceName(selected);
+  const layout = layoutAtual();
+  const blocos = {
+    saude: resumoSaudeEquipamento(selected),
+    indicadores: `<div class="cards grid-4">${kpi('bolt','Demanda agora','Dados insuficientes','Demanda maxima calculada')}${kpi('clock','Consumo hoje',`${num(t.todayKwh,0)} kWh`,'Clique para visualizar consumo')}${kpi('card','Consumo mensal ate agora',`${num(t.monthKwh,0)} kWh`,'Clique para visualizar sua fatura')}${kpi('chart','Previsao de consumo mensal',`${num(t.forecast,0)} kWh`,'Baseado no historico recente')}</div>`,
+    grafico: panel('Demanda - hoje', '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div>'),
+    detalhes: `<div class="cards grid-3">${panel('Eficiencia', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b style="color:#fbbf24;font-size:20px">0 kWh</b><span style="color:#fbbf24">Consumo previsto nesse horario.</span></div>')}${panel('Metricas de consumo', `<div class="metric-list"><div class="metric-line"><span>Media diaria</span><b>${num(t.monthKwh/30,0)} kWh</b></div><div class="metric-line"><span>Maior consumo</span><b>${num(Math.max(t.todayKwh,60),0)} kWh</b></div><div class="metric-line"><span>Menor consumo</span><b>0 kWh</b></div></div>`)}${panel('Alertas', `<div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>${meterStatusOf(selected) === 'offline' ? 'ATIVO' : 'SEM ALERTA'}</span></div><div class="alert-body"><b>${meterStatusOf(selected) === 'offline' ? 'Multimedidor indisponivel' : 'Multimedidor operante'}</b><p>${meterStatusOf(selected) === 'offline' ? `O SVoltix ${selectedName} esta online, mas nao recebe leitura valida do multimedidor.` : `O SVoltix ${selectedName} esta recebendo leituras validas do multimedidor.`}</p></div><div class="alert-foot"><span>${tempoSemLeitura(selected) || 'Leitura valida atual'}</span><span>${deviceId(selected)}</span></div></div>`)}</div>`
+  };
+  const editor = editandoLayout ? `<section class="layout-editor"><b>Personalizar painel de ${selectedName}</b><div class="muted">A personalizacao e exclusiva deste equipamento.</div><div class="layout-editor-list">${layout.itens.map((item, indice) => `<div class="layout-editor-item"><input type="checkbox" ${item.visivel ? 'checked' : ''} onchange="alterarItemLayout(${indice},'visivel',this.checked)"><b>${item.nome}</b><select onchange="alterarItemLayout(${indice},'tamanho',this.value)"><option value="normal" ${item.tamanho === 'normal' ? 'selected' : ''}>Normal</option><option value="largo" ${item.tamanho === 'largo' ? 'selected' : ''}>Largo</option></select><button class="btn ghost" onclick="moverItemLayout(${indice},-1)">↑</button><button class="btn ghost" onclick="moverItemLayout(${indice},1)">↓</button></div>`).join('')}</div><div style="margin-top:10px"><button class="btn" onclick="salvarLayout()">Salvar painel</button></div></section>` : '';
+  const componentes = layout.itens.filter(item => item.visivel).map(item => `<div class="component ${item.tamanho === 'largo' ? 'wide' : ''}">${blocos[item.id] || ''}</div>`).join('');
   document.getElementById('view-home').innerHTML = `
     <div class="toolbar" style="margin-bottom:14px">
       <button class="btn ghost">${svg('home')} ${selectedName}</button>
       <button class="btn ghost" onclick="editarNomeEquipamento('${deviceId(selected).replace(/'/g, "\\'")}')">Editar nome</button>
       <div class="seg"><button>Custo</button><button class="active">Consumo</button></div>
       <div class="seg"><button class="active">Hoje</button><button>Mes</button><button>Ano</button></div>
-      <span style="flex:1"></span><button class="btn">Personalizar ${svg('gear')}</button>
+      <span style="flex:1"></span><button class="btn" onclick="alternarEditorLayout()">${editandoLayout ? 'Fechar' : 'Personalizar'} ${svg('gear')}</button>
     </div>
-    ${resumoSaudeEquipamento(selected)}
-    <div class="cards grid-4" style="margin-bottom:12px">
-      ${kpi('bolt','Demanda agora','Dados insuficientes','Demanda maxima calculada')}
-      ${kpi('clock','Consumo hoje',`${num(t.todayKwh,0)} kWh`,'Clique para visualizar consumo')}
-      ${kpi('card','Consumo mensal ate agora',`${num(t.monthKwh,0)} kWh`,'Clique para visualizar sua fatura')}
-      ${kpi('chart','Previsao de consumo mensal',`${num(t.forecast,0)} kWh`,'Baseado no historico recente')}
-    </div>
-    ${panel('Demanda - hoje', '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div>')}
-    <div class="cards grid-3" style="margin-top:12px">
-      ${panel('Eficiencia', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b style="color:#fbbf24;font-size:20px">0 kWh</b><span style="color:#fbbf24">Consumo previsto nesse horario.</span></div>')}
-      ${panel('Metricas de consumo', `<div class="metric-list"><div class="metric-line"><span>Media diaria</span><b>${num(t.monthKwh/30,0)} kWh</b></div><div class="metric-line"><span>Maior consumo</span><b>${num(Math.max(t.todayKwh,60),0)} kWh</b></div><div class="metric-line"><span>Menor consumo</span><b>0 kWh</b></div></div>`)}
-      ${panel('Alertas', `<div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>${meterStatusOf(selected) === 'offline' ? 'ATIVO' : 'SEM ALERTA'}</span></div><div class="alert-body"><b>${meterStatusOf(selected) === 'offline' ? 'Multimedidor indisponivel' : 'Multimedidor operante'}</b><p>${meterStatusOf(selected) === 'offline' ? `O SVoltix ${selectedName} esta online, mas nao recebe leitura valida do multimedidor.` : `O SVoltix ${selectedName} esta recebendo leituras validas do multimedidor.`}</p></div><div class="alert-foot"><span>${tempoSemLeitura(selected) || 'Leitura valida atual'}</span><span>${deviceId(selected)}</span></div></div>`)}
-    </div>`;
+    ${editor}
+    <div class="custom-grid">${componentes}</div>`;
   drawHome();
 }
 function kpi(icon,label,value,sub){
@@ -995,7 +1049,7 @@ async function refreshData(){
     ensureSelectedDevice();
     document.getElementById('livePill').innerHTML = '<span class="status-dot warning"></span>Demo';
   }
-  renderAll();
+  carregarLayoutAtual().finally(renderAll);
 }
 function renderAll(){
   renderAreaSelect();

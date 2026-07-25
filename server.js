@@ -59,6 +59,18 @@ const fail = (res, err, status = 500) => {
 
 let colunasTelemetria = null;
 let colunaPayloadGarantida = false;
+let tabelaLayoutsGarantida = false;
+
+// Cada equipamento possui um layout independente para o painel operacional.
+async function garantirTabelaLayouts() {
+  if (tabelaLayoutsGarantida) return;
+  await pool.query(`CREATE TABLE IF NOT EXISTS public.dashboard_layouts (
+    dispositivo TEXT PRIMARY KEY,
+    layout JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  tabelaLayoutsGarantida = true;
+}
 
 /* Preserva o JSON industrial completo sem interferir no esquema legado. */
 async function garantirColunaPayload() {
@@ -357,6 +369,38 @@ app.post('/grupos', async (req, res) => {
        ON CONFLICT (dispositivo)
        DO UPDATE SET nome_grupo = EXCLUDED.nome_grupo`,
       [dispositivo, nome_grupo]
+    );
+    ok(res);
+  } catch (e) { fail(res, e); }
+});
+
+app.get('/api/dashboard-layout/:dispositivo', async (req, res) => {
+  try {
+    await garantirTabelaLayouts();
+    const result = await pool.query(
+      'SELECT layout FROM public.dashboard_layouts WHERE dispositivo = $1',
+      [req.params.dispositivo]
+    );
+    ok(res, { layout: result.rows[0]?.layout || {} });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/dashboard-layout/:dispositivo', async (req, res) => {
+  const layout = req.body?.layout;
+  if (!layout || typeof layout !== 'object' || Array.isArray(layout)) {
+    return res.status(400).json({ sucesso: false, erro: 'Layout inválido.' });
+  }
+  if (JSON.stringify(layout).length > 12000) {
+    return res.status(400).json({ sucesso: false, erro: 'Layout excede o tamanho permitido.' });
+  }
+  try {
+    await garantirTabelaLayouts();
+    await pool.query(
+      `INSERT INTO public.dashboard_layouts (dispositivo, layout, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (dispositivo)
+       DO UPDATE SET layout = EXCLUDED.layout, updated_at = NOW()`,
+      [req.params.dispositivo, JSON.stringify(layout)]
     );
     ok(res);
   } catch (e) { fail(res, e); }

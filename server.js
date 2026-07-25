@@ -42,6 +42,15 @@ const configuracaoBanco = process.env.DATABASE_URL
       ssl: { rejectUnauthorized: false },
     };
 
+/* Registra somente a origem e o destino da conexão, nunca a senha. */
+const urlBanco = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL) : null;
+console.log(
+  `[DB] Origem=${urlBanco ? 'DATABASE_URL' : 'DB_*'} ` +
+  `host=${urlBanco?.hostname || configuracaoBanco.host} ` +
+  `porta=${urlBanco?.port || configuracaoBanco.port} ` +
+  `usuario=${decodeURIComponent(urlBanco?.username || configuracaoBanco.user || '')}`
+);
+
 const pool = new Pool({
   ...configuracaoBanco,
   max: 5,
@@ -63,6 +72,7 @@ app.get('/health', async (_, res) => {
     await pool.query('SELECT 1');
     ok(res, { status: 'ok', ts: new Date().toISOString() });
   } catch (e) {
+    console.error('[DB] Health check falhou:', e.message);
     res.status(503).json({ status: 'error', erro: e.message });
   }
 });

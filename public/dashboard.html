@@ -36,6 +36,15 @@ body {
   color: #19334f;
   font-size: 13px;
 }
+body.dark { background:#07101d; color:#dce9f6; }
+body.dark .panel, body.dark .equipment-health, body.dark .btn.ghost, body.dark .input, body.dark .select, body.dark .layout-drawer, body.dark .layout-drawer-item { background:#102035; color:#dce9f6; border-color:#29435f; }
+body.dark .panel-hd, body.dark h1, body.dark .metric-line b, body.dark .power { color:#7dd3fc; }
+body.dark .label, body.dark .muted, body.dark .health-detail { color:#a8bbd0; }
+body.dark th { background:#172b43; color:#c4d5e8; }
+body.dark tbody tr:nth-child(even) { background:#10243a; }
+body.dark tbody tr:hover { background:#16344f; }
+body.dark .seg { background:#1b344e; }
+body.dark .layout-drawer-actions { background:#102035; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 .app { min-height: 100vh; display: flex; }
@@ -383,6 +392,34 @@ tbody tr:hover { background: #edf8fb; }
 .custom-grid > .component { grid-column:span 4; }
 .custom-grid > .component.wide { grid-column:span 12; }
 .custom-grid > .component.kpi-component { grid-column:span 3; }
+.home-context { display:flex; align-items:end; gap:8px; flex-wrap:wrap; padding:12px; margin-bottom:12px; background:#fff; border:1px solid #d8e2ec; border-radius:var(--radius); box-shadow:0 1px 7px rgba(16,28,48,.06); }
+.home-context .field { min-width:155px; flex:0 1 230px; }
+.home-context .context-spacer { flex:1; }
+.home-kpi { cursor:pointer; transition:transform .16s ease, box-shadow .16s ease; }
+.home-kpi:hover { transform:translateY(-2px); box-shadow:0 8px 18px rgba(16,28,48,.18); }
+.home-chart-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.chart-fullscreen { position:fixed; inset:20px; z-index:70; background:#fff; padding:16px; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,.35); }
+.chart-fullscreen .chart-box { height:calc(100vh - 130px); }
+.widget-note { color:#607791; font-size:11px; line-height:1.45; }
+.period-list { display:grid; gap:9px; }
+.period-row { display:grid; grid-template-columns:82px 1fr 70px; align-items:center; gap:9px; font-size:12px; }
+.period-bar { height:8px; overflow:hidden; border-radius:99px; background:#e8eff6; }
+.period-bar > i { display:block; height:100%; background:#2f77a9; border-radius:inherit; }
+.period-row strong { text-align:right; color:#23628f; }
+.mini-table { max-height:300px; overflow:auto; }
+.mini-table table { min-width:560px; }
+.area-row { cursor:pointer; }
+.area-row.selected { background:#e1f5fb !important; }
+.measurement-status { white-space:nowrap; }
+.home-modal { position:fixed; inset:0; z-index:90; display:grid; place-items:center; padding:16px; background:rgba(4,13,25,.55); }
+.home-modal-card { width:min(720px,100%); max-height:85vh; overflow:auto; background:#fff; color:#19334f; border-radius:12px; box-shadow:0 22px 60px rgba(0,0,0,.32); }
+.home-modal-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:15px 18px; border-bottom:1px solid #dce6ef; }
+.home-modal-head h2 { margin:0; font-size:18px; color:#16395a; }
+.home-modal-body { padding:18px; }
+.layout-drawer-tabs { display:flex; gap:8px; margin:14px 0 10px; }
+.layout-drawer-tabs span { padding:7px 10px; border-radius:999px; background:#e6eef6; color:#42617f; font-weight:800; font-size:11px; }
+.layout-drawer-tabs span.active { background:#23628f; color:white; }
+.component-meta { color:#71869d; display:block; font-size:10px; font-weight:500; margin-top:3px; }
 .layout-mode .component { position:relative; cursor:grab; outline:2px dashed transparent; outline-offset:4px; }
 .layout-mode .component:hover { outline-color:#38bdf8; }
 .layout-mode .component.dragging { opacity:.45; }
@@ -598,16 +635,23 @@ let temporizadorSalvarLayout = null;
 let versaoSelecao = 0;
 let versaoDemanda = 0;
 let dataDemandaSelecionada = localStorage.getItem('svoltix_data_demanda') || today();
+let grandezaHome = localStorage.getItem('svoltix_home_metric') || 'pt';
+let visualizacaoHome = localStorage.getItem('svoltix_home_view') || 'area';
+let leiturasHome = [];
 const COMPONENTES_INICIAIS = [
-  ['saude','Situacao do equipamento','painel'], ['indicadores','Indicadores de consumo','painel'],
-  ['grafico','Grafico de demanda','painel'], ['detalhes','Metricas, eficiencia e alertas','painel']
+  ['saude','Saude da instalacao','painel'], ['indicadores','Indicadores principais','painel'],
+  ['grafico','Grafico de demanda','grafico'], ['tabelaDemanda','Tabela de demanda','tabela'],
+  ['eficiencia','Eficiencia energetica','gauge'], ['metricas','Metricas de consumo','painel'],
+  ['periodos','Consumo por periodo','painel'], ['alertas','Alertas','painel'],
+  ['areas','Areas e equipamentos','tabela'], ['medicoes','Ultimas medicoes','tabela']
 ];
-function layoutPadrao(){ return { itens: COMPONENTES_INICIAIS.map(([id,nome,tipo]) => ({id,nome,tipo,visivel:true,tamanho:id==='grafico'||id==='saude'?'largo':'normal'})) }; }
+function tamanhoPadraoComponente(id){ return ['grafico','tabelaDemanda','areas','medicoes','indicadores','saude'].includes(id) ? 'largo' : 'normal'; }
+function layoutPadrao(){ return { itens: COMPONENTES_INICIAIS.map(([id,nome,tipo]) => ({id,nome,tipo,visivel:true,tamanho:tamanhoPadraoComponente(id)})) }; }
 function layoutAtual(){
   const id = ensureSelectedDevice();
   const salvo = layoutsPorEquipamento[id];
   if (!salvo?.itens) return layoutPadrao();
-  const modelos = new Map(COMPONENTES_INICIAIS.map(([id,nome,tipo]) => [id,{ id,nome,tipo,visivel:true,tamanho:id==='grafico'||id==='saude'?'largo':'normal' }]));
+  const modelos = new Map(COMPONENTES_INICIAIS.map(([id,nome,tipo]) => [id,{ id,nome,tipo,visivel:true,tamanho:tamanhoPadraoComponente(id) }]));
   const itensSalvos = salvo.itens
     .filter(item => modelos.has(item.id))
     .map(item => ({ ...modelos.get(item.id), ...item }));
@@ -718,6 +762,42 @@ function num(v, d=0){ return Number(v || 0).toLocaleString('pt-BR', { maximumFra
 function kwhFromW(w, hours=24){ return Math.max(0, Number(w || 0) * hours / 1000); }
 function today(){ return new Date().toISOString().slice(0,10); }
 function brDate(date=today()){ const [y,m,d] = date.slice(0,10).split('-'); return `${d}/${m}/${y}`; }
+const GRANDEZAS_HOME = {
+  pt:{ titulo:'Demanda', unidade:'kW', divisor:1000 }, pa:{ titulo:'Potencia fase A', unidade:'kW', divisor:1000 }, pb:{ titulo:'Potencia fase B', unidade:'kW', divisor:1000 }, pc:{ titulo:'Potencia fase C', unidade:'kW', divisor:1000 },
+  qa:{ titulo:'Potencia reativa A', unidade:'kVAr', divisor:1000 }, st:{ titulo:'Potencia aparente', unidade:'kVA', divisor:1000 },
+  va:{ titulo:'Tensao fase A', unidade:'V', divisor:1 }, vb:{ titulo:'Tensao fase B', unidade:'V', divisor:1 }, vc:{ titulo:'Tensao fase C', unidade:'V', divisor:1 },
+  ia:{ titulo:'Corrente fase A', unidade:'A', divisor:1 }, ib:{ titulo:'Corrente fase B', unidade:'A', divisor:1 }, ic:{ titulo:'Corrente fase C', unidade:'A', divisor:1 },
+  fpt:{ titulo:'Fator de potencia', unidade:'', divisor:1 }, hz:{ titulo:'Frequencia', unidade:'Hz', divisor:1 }
+};
+function metaGrandezaHome(){ return GRANDEZAS_HOME[grandezaHome] || GRANDEZAS_HOME.pt; }
+function escapeHtml(valor){ return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+function alterarGrandezaHome(valor){ if (!GRANDEZAS_HOME[valor]) return; grandezaHome = valor; localStorage.setItem('svoltix_home_metric', valor); renderHome(); }
+function alterarVisualizacaoHome(valor){ if (!['area','linha','barras'].includes(valor)) return; visualizacaoHome = valor; localStorage.setItem('svoltix_home_view', valor); renderHome(); }
+function deslocarDataDemanda(dias){ const base = new Date(`${dataDemandaSelecionada}T12:00:00`); base.setDate(base.getDate() + dias); const alvo = base.toISOString().slice(0,10); if (alvo <= today()) setDataDemanda(alvo); }
+function alternarTema(){ const escuro = !document.body.classList.contains('dark'); document.body.classList.toggle('dark', escuro); localStorage.setItem('svoltix_tema', escuro ? 'dark' : 'light'); renderHome(); }
+function aplicarTemaSalvo(){ document.body.classList.toggle('dark', localStorage.getItem('svoltix_tema') === 'dark'); }
+function horaLeitura(linha){ const data = new Date(linha.created_at); return Number.isNaN(data.getTime()) ? '--:--' : data.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function consumoKwhDasLeituras(linhas){
+  const ordenadas = linhas.slice().sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+  return ordenadas.slice(1).reduce((soma, linha, indice) => {
+    const anterior = ordenadas[indice];
+    const intervalo = Math.max(0, (new Date(linha.created_at) - new Date(anterior.created_at)) / 3600000);
+    return soma + (Number(anterior.pt || 0) / 1000) * Math.min(intervalo, 1);
+  }, 0);
+}
+function abrirModalHome(titulo, conteudo){
+  const anterior = document.getElementById('homeModal'); if (anterior) anterior.remove();
+  document.body.insertAdjacentHTML('beforeend', `<div class="home-modal" id="homeModal" role="dialog" aria-modal="true" aria-label="${escapeHtml(titulo)}" onclick="if(event.target===this)fecharModalHome()"><section class="home-modal-card"><header class="home-modal-head"><h2>${escapeHtml(titulo)}</h2><button class="btn icon ghost" aria-label="Fechar" onclick="fecharModalHome()">×</button></header><div class="home-modal-body">${conteudo}</div></section></div>`);
+}
+function fecharModalHome(){ document.getElementById('homeModal')?.remove(); }
+function exportarCsvHome(){
+  const meta = metaGrandezaHome();
+  const linhas = leiturasHome.map(l => `${l.created_at || ''};${Number(l[grandezaHome] || 0) / meta.divisor}`).join('\n');
+  const blob = new Blob([`data_hora;${meta.titulo} (${meta.unidade})\n${linhas}`], {type:'text/csv;charset=utf-8'});
+  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `svoltix-${ensureSelectedDevice()}-${dataDemandaSelecionada}.csv`; link.click(); URL.revokeObjectURL(link.href);
+}
+function alternarTelaCheiaGrafico(){ document.getElementById('homeChartPanel')?.classList.toggle('chart-fullscreen'); setTimeout(resizeCharts, 50); }
+document.addEventListener('keydown', event => { if (event.key === 'Escape') fecharModalHome(); });
 function deviceId(d){ return d.device || d.dispositivo || d.id || 'SVX-EQUIPAMENTO'; }
 function deviceName(d){
   const id = deviceId(d);
@@ -861,21 +941,24 @@ function toast(msg){
 }
 function destroyChart(id){ if (charts[id]) { charts[id].destroy(); charts[id] = null; } }
 function resizeCharts(){ Object.values(charts).forEach(c => c && c.resize()); }
-function makeLine(id, labels, datasets, yTitle=''){
+function makeLine(id, labels, datasets, yTitle='', tipo='line'){
   destroyChart(id);
   const el = document.getElementById(id);
   if (!el || !window.Chart) return;
+  const escuro = document.body.classList.contains('dark');
+  const texto = escuro ? '#b9cce0' : '#445a72';
+  const grade = escuro ? '#263e58' : '#e1e9f2';
   charts[id] = new Chart(el, {
-    type: 'line',
+    type: tipo,
     data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode:'index', intersect:false },
-      plugins: { legend: { labels: { color:'#445a72' } } },
+      plugins: { legend: { labels: { color:texto } } },
       scales: {
-        x: { grid: { color:'#e1e9f2' }, ticks:{ color:'#5d6f86', maxTicksLimit: 9 } },
-        y: { beginAtZero:true, title:{ display:!!yTitle, text:yTitle }, grid: { color:'#e1e9f2' }, ticks:{ color:'#5d6f86' } }
+        x: { grid: { color:grade }, ticks:{ color:texto, maxTicksLimit: 9 } },
+        y: { beginAtZero:true, title:{ display:!!yTitle, text:yTitle, color:texto }, grid: { color:grade }, ticks:{ color:texto } }
       }
     }
   });
@@ -933,7 +1016,7 @@ function setDataDemanda(data){
   localStorage.setItem('svoltix_data_demanda', data);
   renderHome();
 }
-function renderHome(){
+function renderHomeLegado(){
   const t = totals();
   const selected = currentDevice();
   const selectedName = deviceName(selected);
@@ -960,6 +1043,45 @@ function renderHome(){
 }
 function kpi(icon,label,value,sub){
   return `<div class="kpi"><div class="ico">${svg(icon)}</div><div class="body"><div class="label">${label}</div><strong>${value}</strong><small>${sub}</small></div></div>`;
+}
+function renderHome(){
+  const t = totals();
+  const selected = currentDevice();
+  const selectedName = deviceName(selected);
+  const layout = layoutAtual();
+  const meta = metaGrandezaHome();
+  const alertaAtivo = meterStatusOf(selected) === 'offline';
+  const blocos = {
+    saude: `<div id="homeHealth">${resumoSaudeEquipamento(selected)}</div>`,
+    indicadores: `<div class="cards grid-4">
+      <div class="home-kpi" onclick="abrirResumoHome('demanda')">${kpi('bolt','Demanda agora',`<span id="homeDemandNow">${num(t.totalW/1000,2)} kW</span>`,'Potencia ativa da ultima leitura')}</div>
+      <div class="home-kpi" onclick="abrirResumoHome('consumo')">${kpi('clock',`Consumo ${brDate(dataDemandaSelecionada)}`,`<span id="homeConsumptionValue">-- kWh</span>`,'Acumulado no dia selecionado')}</div>
+      <div class="home-kpi" onclick="abrirResumoHome('mensal')">${kpi('card','Consumo mensal ate agora',`<span id="homeMonthlyValue">${num(t.monthKwh,0)} kWh</span>`,'Estimativa operacional do periodo')}</div>
+      <div class="home-kpi" onclick="abrirResumoHome('previsao')">${kpi('chart','Previsao mensal',`<span id="homeForecastValue">${num(t.forecast,0)} kWh</span>`,'Baseada na media recente')}</div>
+    </div>`,
+    grafico: `<div id="homeChartPanel">${panel(`${meta.titulo} - ${brDate(dataDemandaSelecionada)} - ${selectedName}`, '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div><div class="muted" id="homeDemandStatus" style="padding-top:8px"></div>', `<div class="home-chart-actions"><button class="btn icon ghost" onclick="deslocarDataDemanda(-1)" title="Dia anterior">←</button><button class="btn icon ghost" onclick="deslocarDataDemanda(1)" title="Proximo dia">→</button><button class="btn icon ghost" onclick="exportarCsvHome()" title="Exportar CSV">${svg('download')}</button><button class="btn icon ghost" onclick="alternarTelaCheiaGrafico()" title="Tela cheia">↗</button></div>`)}</div>`,
+    tabelaDemanda: panel(`Demanda por hora - ${brDate(dataDemandaSelecionada)}`, '<div class="mini-table" id="homeDemandTable"><div class="empty">Carregando leituras do dia...</div></div>'),
+    eficiencia: panel('Eficiencia energetica', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b id="effValue" style="color:#23628f;font-size:20px">--</b><p class="widget-note" id="effText">Aguardando dados suficientes para avaliar.</p></div>'),
+    metricas: panel('Metricas de consumo', '<div class="metric-list" id="homeMetrics"><div class="metric-line"><span>Carregando metricas...</span><b>--</b></div></div>'),
+    periodos: panel('Consumo por periodo', '<div class="period-list" id="homePeriods"><div class="empty">Aguardando dados do periodo.</div></div>'),
+    alertas: panel('Alertas', `<div id="homeAlerts"><div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>${alertaAtivo ? 'ATIVO' : 'SEM ALERTA'}</span></div><div class="alert-body"><b>${alertaAtivo ? 'Multimedidor indisponivel' : 'Nenhum alerta ativo'}</b><p>${alertaAtivo ? `O SVoltix ${selectedName} esta online, mas nao recebe leitura valida do multimedidor.` : 'Nenhuma ocorrencia ativa para este equipamento.'}</p></div><div class="alert-foot"><span>${tempoSemLeitura(selected) || 'Leitura valida atual'}</span><span>${deviceId(selected)}</span></div></div></div>`),
+    areas: panel('Areas e equipamentos', '<div class="mini-table" id="homeAreasTable"><div class="empty">Carregando equipamentos...</div></div>'),
+    medicoes: panel('Ultimas medicoes', '<div class="mini-table" id="homeMeasurements"><div class="empty">Carregando medicoes...</div></div>')
+  };
+  const editor = editandoLayout ? `<div class="layout-drawer-backdrop" onclick="alternarEditorLayout()"></div><aside class="layout-drawer"><div class="layout-drawer-head"><div><h2>Lista de componentes</h2><p>${selectedName} · alteracoes salvas por equipamento</p></div><button class="btn icon ghost" onclick="alternarEditorLayout()">×</button></div><div class="layout-drawer-tabs"><span class="active">Energia</span><span>Agua</span><span>Producao</span></div><div class="layout-drawer-list">${layout.itens.map((item, indice) => `<div class="layout-drawer-item"><span class="drag-handle" title="Arraste para reorganizar">⠿</span><input type="checkbox" aria-label="Exibir ${item.nome}" ${item.visivel ? 'checked' : ''} onchange="alterarItemLayout(${indice},'visivel',this.checked)"><div style="flex:1"><b>${item.nome}</b><span class="component-meta">${item.tipo} · ${item.tamanho === 'largo' ? 'largura total' : 'card'}</span></div><select onchange="alterarItemLayout(${indice},'tamanho',this.value)"><option value="normal" ${item.tamanho === 'normal' ? 'selected' : ''}>Card</option><option value="largo" ${item.tamanho === 'largo' ? 'selected' : ''}>Largo</option></select><button class="btn ghost" onclick="moverItemLayout(${indice},-1)" title="Mover para cima">↑</button><button class="btn ghost" onclick="moverItemLayout(${indice},1)" title="Mover para baixo">↓</button></div>`).join('')}</div><div class="layout-drawer-actions"><button class="btn ghost" onclick="restaurarLayoutPadrao()">Restaurar</button><button class="btn" onclick="salvarLayout()">Salvar</button></div></aside>` : '';
+  const componentes = layout.itens.map((item, indice) => item.visivel ? `<div class="component ${item.tamanho === 'largo' ? 'wide' : ''}" ${editandoLayout ? `draggable="true" ondragstart="iniciarArrasteLayout(event,${indice})" ondragover="permitirSoltarLayout(event)" ondragleave="limparSoltarLayout(event)" ondrop="soltarLayout(event,${indice})" ondragend="finalizarArrasteLayout()"` : ''}>${blocos[item.id] || ''}</div>` : '').join('');
+  document.getElementById('view-home').innerHTML = `
+    <div class="home-context">
+      <div class="field"><label class="label">Empresa / equipamento</label><select class="select" onchange="setSelectedDevice(this.value)">${deviceOptions()}</select></div>
+      <div class="field"><label class="label">Grandeza</label><select class="select" onchange="alterarGrandezaHome(this.value)">${Object.entries(GRANDEZAS_HOME).map(([campo,config]) => `<option value="${campo}" ${campo === grandezaHome ? 'selected' : ''}>${config.titulo}</option>`).join('')}</select></div>
+      <div class="field"><label class="label">Visualizacao</label><select class="select" onchange="alterarVisualizacaoHome(this.value)"><option value="area" ${visualizacaoHome==='area'?'selected':''}>Area e linha</option><option value="linha" ${visualizacaoHome==='linha'?'selected':''}>Linha</option><option value="barras" ${visualizacaoHome==='barras'?'selected':''}>Barras</option></select></div>
+      <div class="field"><label class="label">Dia de referencia</label><input class="input" type="date" value="${dataDemandaSelecionada}" max="${today()}" onchange="setDataDemanda(this.value)"></div>
+      <button class="btn ghost" onclick="setDataDemanda(today())">Hoje</button><button class="btn ghost" onclick="drawHome()">${svg('clock')}Atualizar</button>
+      <span class="context-spacer"></span><button class="btn ghost" onclick="alternarTema()" title="Alternar tema">${document.body.classList.contains('dark') ? 'Claro' : 'Escuro'}</button><button class="btn" onclick="alternarEditorLayout()">${editandoLayout ? 'Fechar' : 'Personalizar'} ${svg('gear')}</button>
+    </div>
+    <div class="custom-grid ${editandoLayout ? 'layout-mode' : ''}">${componentes}</div>
+    ${editor}`;
+  drawHome();
 }
 function renderMonitor(){
   const selected = currentDevice();
@@ -1117,13 +1239,19 @@ async function refreshData(inicial = false){
     ensureSelectedDevice();
   }
   if (inicial) carregarLayoutAtual().finally(renderAll);
+  else {
+    const demanda = document.getElementById('homeDemandNow');
+    if (demanda) demanda.textContent = `${num(Number(currentDevice().pt || 0) / 1000,2)} kW`;
+    const saude = document.getElementById('homeHealth');
+    if (saude) saude.innerHTML = resumoSaudeEquipamento(currentDevice());
+  }
 }
 function renderAll(){
   renderAreaSelect();
   renderDashboards(); renderHome(); renderMonitor(); renderHistorico(); renderAnalise(); renderFaturamento(); renderGeracao(); renderRelatorios(); renderAlertas(); renderDownloads(); renderConfig();
   syncSelectionControls();
 }
-async function drawHome(){
+async function drawHomeLegado(){
   const versaoAtual = ++versaoDemanda;
   const equipamento = ensureSelectedDevice();
   const data = dataDemandaSelecionada;
@@ -1160,6 +1288,84 @@ async function drawHome(){
     ? `${linhas.length} leituras utilizadas no dia selecionado.`
     : 'Não há leituras para o dia selecionado.';
   makeGauge('effGauge', 6.8, 10);
+}
+function resumoDasLeiturasHome(linhas){
+  const ordenadas = linhas.slice().sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+  const consumo = consumoKwhDasLeituras(ordenadas);
+  const potencias = ordenadas.map(l => Number(l.pt || 0) / 1000).filter(Number.isFinite);
+  const maior = potencias.length ? Math.max(...potencias) : 0;
+  const menor = potencias.length ? Math.min(...potencias) : 0;
+  const media = potencias.length ? potencias.reduce((s,v)=>s+v,0)/potencias.length : 0;
+  const periodos = [['Madrugada',0,6],['Manha',6,12],['Tarde',12,18],['Noite',18,24]].map(([nome,inicio,fim]) => {
+    const grupo = ordenadas.filter(l => { const h = new Date(l.created_at).getHours(); return h >= inicio && h < fim; });
+    return { nome, consumo:consumoKwhDasLeituras(grupo) };
+  });
+  return { ordenadas, consumo, maior, menor, media, periodos };
+}
+function preencherWidgetsHome(linhas){
+  const selected = currentDevice();
+  const resumo = resumoDasLeiturasHome(linhas);
+  const consumo = document.getElementById('homeConsumptionValue'); if (consumo) consumo.textContent = `${num(resumo.consumo,2)} kWh`;
+  const demanda = document.getElementById('homeDemandNow'); if (demanda) demanda.textContent = `${num(Number(selected.pt || 0)/1000,2)} kW`;
+  const mensal = document.getElementById('homeMonthlyValue'); if (mensal) mensal.textContent = `${num(resumo.consumo * 30,0)} kWh`;
+  const previsao = document.getElementById('homeForecastValue'); if (previsao) previsao.textContent = `${num(resumo.consumo * 33.6,0)} kWh`;
+  const eficiencia = resumo.maior > 0 ? Math.min(10, Math.max(1, 10 - (resumo.maior / Math.max(resumo.media * 2, 1)) * 2)) : 0;
+  makeGauge('effGauge', eficiencia, 10);
+  const effValue = document.getElementById('effValue'); if (effValue) effValue.textContent = linhas.length ? `${num(eficiencia * 10,0)}%` : 'Sem dados';
+  const effText = document.getElementById('effText'); if (effText) effText.textContent = !linhas.length ? 'Nao existem leituras para o periodo selecionado.' : eficiencia >= 7 ? 'Perfil dentro do padrao operacional recente.' : 'Verifique equipamentos com maior demanda no horario de pico.';
+  const metrics = document.getElementById('homeMetrics');
+  if (metrics) metrics.innerHTML = linhas.length ? [
+    ['Consumo do dia', `${num(resumo.consumo,2)} kWh`], ['Demanda maxima', `${num(resumo.maior,2)} kW`], ['Demanda media', `${num(resumo.media,2)} kW`], ['Menor demanda', `${num(resumo.menor,2)} kW`], ['Fator de potencia', num(Number(selected.fpt || 0),2)]
+  ].map(([nome,valor]) => `<div class="metric-line"><span>${nome}</span><b>${valor}</b></div>`).join('') : '<div class="empty">Sem dados para calcular metricas.</div>';
+  const totalPeriodo = resumo.periodos.reduce((s,p)=>s+p.consumo,0);
+  const periodos = document.getElementById('homePeriods');
+  if (periodos) periodos.innerHTML = linhas.length ? resumo.periodos.map(p => { const percentual = totalPeriodo ? p.consumo/totalPeriodo*100 : 0; return `<div class="period-row"><span>${p.nome}</span><div class="period-bar"><i style="width:${percentual}%"></i></div><strong>${num(p.consumo,1)} kWh</strong></div>`; }).join('') : '<div class="empty">Sem distribuicao de consumo.</div>';
+  const tabela = document.getElementById('homeDemandTable');
+  if (tabela) {
+    const porHora = Array.from({length:24},()=>[]); resumo.ordenadas.forEach(l => porHora[new Date(l.created_at).getHours()].push(Number(l.pt || 0)/1000));
+    tabela.innerHTML = `<table><thead><tr><th>Hora</th><th>Demanda</th><th>Tarifa</th><th>Status</th></tr></thead><tbody>${porHora.map((amostras,hora) => { const valor = amostras.length ? amostras.reduce((s,v)=>s+v,0)/amostras.length : null; const ponta = hora >= 18 && hora < 21; return `<tr><td>${String(hora).padStart(2,'0')}:00</td><td>${valor === null ? '--' : `${num(valor,2)} kW`}</td><td>${ponta ? 'Ponta' : 'Fora ponta'}</td><td>${valor === null ? 'Sem leitura' : valor === resumo.maior ? 'Maxima' : 'Normal'}</td></tr>`; }).join('')}</tbody></table>`;
+  }
+  const medicoes = document.getElementById('homeMeasurements');
+  if (medicoes) medicoes.innerHTML = linhas.length ? `<table><thead><tr><th>Data e hora</th><th>V A</th><th>V B</th><th>V C</th><th>I A</th><th>Potencia</th><th>FP</th><th>Status</th></tr></thead><tbody>${resumo.ordenadas.slice(-12).reverse().map(l => `<tr><td>${horaLeitura(l)}</td><td>${num(l.va,1)} V</td><td>${num(l.vb,1)} V</td><td>${num(l.vc,1)} V</td><td>${num(l.ia,2)} A</td><td>${num(Number(l.pt||0)/1000,2)} kW</td><td>${num(l.fpt,2)}</td><td class="measurement-status">${l.leituraMedidorValida === false ? 'Indisponivel' : 'Valida'}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Nenhuma medicao no periodo selecionado.</div>';
+  const areas = document.getElementById('homeAreasTable');
+  if (areas) areas.innerHTML = `<table><thead><tr><th>Area / equipamento</th><th>Demanda</th><th>Multimedidor</th><th>Ultima atualizacao</th></tr></thead><tbody>${deviceList().map(d => { const id=deviceId(d); return `<tr class="area-row ${id===ensureSelectedDevice()?'selected':''}" onclick="setSelectedDevice('${id.replace(/'/g,"\\'")}')"><td><b>${escapeHtml(deviceName(d))}</b><span class="id-note">${id}</span></td><td>${num(Number(d.pt||0)/1000,2)} kW</td><td>${meterStatusLabel(d)}</td><td>${d.created_at ? horaLeitura(d) : '--'}</td></tr>`; }).join('')}</tbody></table>`;
+}
+function abrirResumoHome(tipo){
+  const resumo = resumoDasLeiturasHome(leiturasHome);
+  const conteudos = {
+    demanda:`<p>Demanda maxima no dia selecionado: <b>${num(resumo.maior,2)} kW</b>.</p><p>Demanda media: <b>${num(resumo.media,2)} kW</b>.</p>`,
+    consumo:`<p>Consumo integrado a partir das leituras recebidas em ${brDate(dataDemandaSelecionada)}: <b>${num(resumo.consumo,2)} kWh</b>.</p>`,
+    mensal:`<p>Estimativa mensal baseada no consumo do dia selecionado: <b>${num(resumo.consumo * 30,0)} kWh</b>.</p>`,
+    previsao:`<p>Previsao operacional baseada na media recente: <b>${num(resumo.consumo * 33.6,0)} kWh</b>.</p>`
+  };
+  abrirModalHome('Resumo do indicador', conteudos[tipo] || '<p>Sem detalhes disponiveis.</p>');
+}
+async function drawHome(){
+  const versaoAtual = ++versaoDemanda;
+  const equipamento = ensureSelectedDevice();
+  const data = dataDemandaSelecionada;
+  const meta = metaGrandezaHome();
+  const labels = Array.from({length:24}, (_,hora)=>`${String(hora).padStart(2,'0')}h`);
+  let linhas = [];
+  try {
+    const res = await fetch(`${API}/api/historico/${encodeURIComponent(equipamento)}?data=${encodeURIComponent(data)}&limit=10000`);
+    if (!res.ok) throw new Error('historico');
+    linhas = await res.json();
+  } catch {}
+  if (versaoAtual !== versaoDemanda) return;
+  leiturasHome = Array.isArray(linhas) ? linhas : [];
+  const porHora = Array.from({length:24}, () => []);
+  leiturasHome.forEach(linha => { const instante = new Date(linha.created_at); if (!Number.isNaN(instante.getTime())) porHora[instante.getHours()].push(Number(linha[grandezaHome] || 0) / meta.divisor); });
+  const valores = porHora.map(amostras => amostras.length ? amostras.reduce((s,v)=>s+v,0)/amostras.length : null);
+  const media = valores.map(v => v === null ? null : valores.filter(x => x !== null).reduce((s,x)=>s+x,0) / Math.max(1,valores.filter(x => x !== null).length));
+  const tipo = visualizacaoHome === 'barras' ? 'bar' : 'line';
+  makeLine('homeDemand', labels, [
+    { label:meta.titulo, data:valores, borderColor:'#23628f', backgroundColor:visualizacaoHome==='area' ? 'rgba(35,98,143,.22)' : 'rgba(35,98,143,.68)', tension:.35, fill:visualizacaoHome==='area', spanGaps:false, borderWidth:2 },
+    ...(visualizacaoHome === 'area' ? [{ label:'Media', data:media, borderColor:'#f35b4b', borderWidth:2, tension:.35, fill:false, pointRadius:0, spanGaps:false }] : [])
+  ], meta.unidade, tipo);
+  preencherWidgetsHome(leiturasHome);
+  const status = document.getElementById('homeDemandStatus');
+  if (status) status.textContent = leiturasHome.length ? `${leiturasHome.length} leituras utilizadas. Ultima atualizacao: ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}.` : 'Nao ha leituras para o dia selecionado.';
 }
 async function fetchHistoryByWindow(device, seconds, limit = 5000){
   const safeSeconds = Math.min(Math.max(parseInt(seconds, 10) || 30, 1), 30 * 24 * 3600);
@@ -1306,10 +1512,11 @@ function sair(){
   location.href = 'index.html';
 }
 function init(){
+  aplicarTemaSalvo();
   document.getElementById('userName').textContent = localStorage.getItem('usuario') || 'IST EFICIENCIA';
   renderNav();
   loadGroupNames().then(() => refreshData(true));
-  setInterval(() => refreshData(false), 60000);
+  setInterval(() => refreshData(false), 30000);
 }
 init();
 </script>

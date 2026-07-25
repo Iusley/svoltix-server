@@ -157,6 +157,10 @@ body.sidebar-collapsed .sidebar { width:64px; }
 body.sidebar-collapsed .main { margin-left:64px; width:calc(100% - 64px); }
 body.sidebar-collapsed .brand { padding:14px 12px; justify-content:center; }
 body.sidebar-collapsed .brand-copy, body.sidebar-collapsed .area-switch, body.sidebar-collapsed .sidebar-footer, body.sidebar-collapsed .nav-item span, body.sidebar-collapsed .nav-badge { display:none; }
+body.sidebar-collapsed .area-switch { display:block; padding:10px 12px; }
+body.sidebar-collapsed .area-label { display:none; }
+body.sidebar-collapsed .area-select { width:40px; min-width:40px; height:38px; padding:0 3px; color:transparent; font-size:0; background:#173b5d; }
+body.sidebar-collapsed .area-select option { color:#fff; font-size:13px; }
 body.sidebar-collapsed .sidebar-collapse { position:absolute; right:-12px; top:16px; background:var(--panel-2); border:1px solid var(--panel-border); box-shadow:0 4px 12px rgba(0,0,0,.18); }
 body.sidebar-collapsed .sidebar-collapse svg { transform:rotate(180deg); }
 body.sidebar-collapsed .nav { padding-top:12px; }
@@ -972,6 +976,8 @@ function renderAreaSelect(){
   const selected = ensureSelectedDevice();
   select.innerHTML = deviceList().map(d => `<option value="${deviceId(d)}">${deviceName(d)} · ${deviceId(d)}</option>`).join('');
   if ([...select.options].some(o => o.value === selected)) select.value = selected;
+  const atual = [...select.options].find(o => o.value === select.value);
+  select.title = atual ? `Selecionar equipamento: ${atual.textContent}` : 'Selecionar equipamento';
 }
 function pageTitle(icon, title, extra=''){
   return `<div class="page-hd"><div class="title-row"><span class="title-ico">${svg(icon)}</span><h1>${title}</h1>${extra}</div></div>`;

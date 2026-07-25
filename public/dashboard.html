@@ -918,7 +918,7 @@ async function setSelectedDevice(id, nextView = null){
 }
 function syncSelectionControls(){
   const id = ensureSelectedDevice();
-  ['areaSelect','deviceSelect','histDevice','anaDevice'].forEach(selId => {
+  ['areaSelect'].forEach(selId => {
     const el = document.getElementById(selId);
     if (el && [...el.options].some(o => o.value === id)) el.value = id;
   });
@@ -1068,10 +1068,8 @@ function fakeSeries(field='pt', len=14){
   });
 }
 function controlsHtml(){
-  const options = deviceOptions();
   return `<div class="filters">
     <div class="field"><label class="label">Grandeza</label><select class="select" id="metricSelect"><option value="pt">Potencia Ativa</option><option value="va">Tensao A</option><option value="ia">Corrente A</option><option value="fpt">Fator de Potencia</option><option value="hz">Frequencia</option></select></div>
-    <div class="field"><label class="label">Medidor</label><select class="select" id="deviceSelect" onchange="setSelectedDevice(this.value)">${options || '<option>SVX-EQUIPAMENTO</option>'}</select></div>
     <div class="field sm"><label class="label">Janela de dados (s)</label><input class="input" id="monitorWindow" type="number" min="5" max="86400" step="5" value="${localStorage.getItem('svoltix_window_seconds') || 30}"></div>
     <button class="btn" onclick="drawMonitor()">${svg('search')}Aplicar</button>
   </div>`;
@@ -1212,7 +1210,6 @@ function renderHome(){
   const componentes = layout.itens.map((item, indice) => item.visivel ? `<div class="component ${item.tamanho === 'largo' ? 'wide' : item.tamanho === 'medio' ? 'medium' : ''}" ${editandoLayout ? `draggable="true" ondragstart="iniciarArrasteLayout(event,${indice})" ondragover="permitirSoltarLayout(event)" ondragleave="limparSoltarLayout(event)" ondrop="soltarLayout(event,${indice})" ondragend="finalizarArrasteLayout()"` : ''}>${blocos[item.id] || ''}${editandoLayout ? ['nw','ne','sw','se'].map(canto => `<button class="resize-handle ${canto}" aria-label="Redimensionar ${item.nome}" onpointerdown="iniciarRedimensionamentoLayout(event,${indice})"></button>`).join('') : ''}</div>` : '').join('');
   document.getElementById('view-home').innerHTML = `
     <div class="home-context">
-      <div class="field"><label class="label">Empresa / equipamento</label><select class="select" onchange="setSelectedDevice(this.value)">${deviceOptions()}</select></div>
       <div class="field"><label class="label">Grandeza</label><select class="select" onchange="alterarGrandezaHome(this.value)">${Object.entries(GRANDEZAS_HOME).map(([campo,config]) => `<option value="${campo}" ${campo === grandezaHome ? 'selected' : ''}>${config.titulo}</option>`).join('')}</select></div>
       <div class="field"><label class="label">Visualizacao</label><select class="select" onchange="alterarVisualizacaoHome(this.value)"><option value="area" ${visualizacaoHome==='area'?'selected':''}>Area e linha</option><option value="linha" ${visualizacaoHome==='linha'?'selected':''}>Linha</option><option value="barras" ${visualizacaoHome==='barras'?'selected':''}>Barras</option></select></div>
       <div class="field"><label class="label">Dia de referencia</label><input class="input" type="date" value="${dataDemandaSelecionada}" max="${today()}" onchange="setDataDemanda(this.value)"></div>
@@ -1243,7 +1240,6 @@ function renderHistorico(){
       <div class="field"><label class="label">Grandeza</label><select class="select" id="histMetric"><option value="pt">Potencia Ativa</option><option value="va">Tensao A</option><option value="ia">Corrente A</option><option value="fpt">Fator de Potencia</option></select></div>
       <div class="field"><label class="label">Inicio</label><input class="input" type="date" id="histStart" value="${today()}"></div>
       <div class="field"><label class="label">Fim</label><input class="input" type="date" id="histEnd" value="${today()}"></div>
-      <div class="field"><label class="label">Medidor</label><select class="select" id="histDevice" onchange="setSelectedDevice(this.value)">${deviceOptions()}</select></div>
       <div class="field sm"><label class="label">Janela (s)</label><input class="input" type="number" id="histWindow" min="5" max="86400" step="5" value="${localStorage.getItem('svoltix_window_seconds') || 300}"></div>
       <button class="btn" onclick="loadHistory()">${svg('search')}</button>
     </div>
@@ -1256,7 +1252,6 @@ function renderAnalise(){
     <div class="tabs"><div class="tab active">Analise Por Medidores</div><div class="tab">Comparar Periodo</div></div>
     <div class="form-grid">
       <div class="field"><label class="label">Grandeza</label><select class="select" id="anaMetric"><option value="pt">Consumo</option><option value="va">Tensao</option></select></div>
-      <div class="field"><label class="label">Medidores</label><select class="select" id="anaDevice" onchange="setSelectedDevice(this.value)">${deviceOptions()}</select></div>
       <div class="field"><label class="label">Dia inicial</label><input class="input" type="date" value="${today()}"></div>
       <div class="field"><label class="label">Dia final</label><input class="input" type="date" value="${today()}"></div>
       <button class="btn" onclick="drawAnalysis()">${svg('search')}Analisar</button>

@@ -376,6 +376,22 @@ tbody tr:hover { background: #edf8fb; }
 .dashboard-row td { height: 42px; }
 .dashboard-table { table-layout:fixed; }
 .dashboard-table th, .dashboard-table td { overflow:hidden; text-overflow:ellipsis; }
+.dashboard-view-toggle { display:flex; gap:4px; padding:3px; border:1px solid #d5e0eb; border-radius:7px; background:#fff; }
+.dashboard-view-toggle button { height:27px; border:0; border-radius:5px; padding:0 10px; background:transparent; color:#53708d; font-size:11px; font-weight:800; }
+.dashboard-view-toggle button.active { background:#23628f; color:#fff; }
+.dashboard-card-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:12px; }
+.dashboard-card { min-height:172px; padding:14px; cursor:pointer; background:#fff; border:1px solid #d8e2ec; border-radius:10px; box-shadow:0 1px 7px rgba(16,28,48,.08); transition:transform .16s ease, box-shadow .16s ease; }
+.dashboard-card:hover { transform:translateY(-2px); box-shadow:0 8px 18px rgba(16,28,48,.14); }
+.dashboard-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.dashboard-card-name { min-width:0; color:#173a5c; font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dashboard-card-id { display:block; margin-top:3px; color:#7890aa; font-size:11px; }
+.dashboard-card-health { display:flex; gap:6px; flex-wrap:wrap; margin:14px 0; }
+.dashboard-card-metrics { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.dashboard-card-metric { padding:9px; border-radius:7px; background:#edf4f9; }
+.dashboard-card-metric span { display:block; color:#607791; font-size:10px; font-weight:800; text-transform:uppercase; }
+.dashboard-card-metric b { display:block; margin-top:4px; color:#23628f; font-size:16px; }
+body.dark .dashboard-card, body.dark .dashboard-view-toggle { background:#102035; border-color:#29435f; }
+body.dark .dashboard-card-metric { background:#172f49; }
 .power { color: #23628f; font-weight: 800; white-space: nowrap; }
 .power svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 5px; }
 .id-note { display: inline; margin-left: 8px; color: #7890aa; font-size: 11px; }
@@ -694,6 +710,8 @@ let leiturasHome = [];
 let buscaDashboard = '';
 let filtroComunicacaoDashboard = 'todos';
 let filtroMedidorDashboard = 'todos';
+let modoDashboard = localStorage.getItem('svoltix_dashboard_view') || 'tabela';
+let ordenacaoDashboard = localStorage.getItem('svoltix_dashboard_sort') || 'alfabetica';
 const COMPONENTES_INICIAIS = [
   ['saude','Saude da instalacao','painel'], ['indicadores','Indicadores principais','painel'],
   ['grafico','Grafico de demanda','grafico'], ['tabelaDemanda','Tabela de demanda','tabela'],
@@ -1118,13 +1136,42 @@ function aplicarFiltrosNaTabelaDashboard(){
     linha.hidden = !corresponde;
     if (corresponde) visiveis++;
   });
+  document.querySelectorAll('[data-dashboard-card]').forEach(cartao => {
+    const corresponde = (!buscaDashboard || cartao.dataset.search.includes(buscaDashboard))
+      && (filtroComunicacaoDashboard === 'todos' || cartao.dataset.communication === filtroComunicacaoDashboard)
+      && (filtroMedidorDashboard === 'todos' || cartao.dataset.meter === filtroMedidorDashboard);
+    cartao.hidden = !corresponde;
+  });
   const contador = document.getElementById('dashboardFilterCount');
   if (contador) contador.textContent = `${visiveis} de ${linhas.length} equipamento(s)`;
   const vazio = document.getElementById('dashboardNoResults');
   if (vazio) vazio.hidden = visiveis !== 0;
+  const vazioCards = document.getElementById('dashboardNoResultsCards');
+  if (vazioCards) vazioCards.hidden = visiveis !== 0;
+}
+function definirModoDashboard(modo){
+  modoDashboard = modo === 'cards' ? 'cards' : 'tabela';
+  localStorage.setItem('svoltix_dashboard_view', modoDashboard);
+  const tabela = document.getElementById('dashboardTableView');
+  const cards = document.getElementById('dashboardCardsView');
+  if (tabela) tabela.hidden = modoDashboard !== 'tabela';
+  if (cards) cards.hidden = modoDashboard !== 'cards';
+  document.querySelectorAll('[data-dashboard-mode]').forEach(botao => botao.classList.toggle('active', botao.dataset.dashboardMode === modoDashboard));
+}
+function alterarOrdenacaoDashboard(valor){
+  ordenacaoDashboard = valor === 'comunicacao' ? 'comunicacao' : 'alfabetica';
+  localStorage.setItem('svoltix_dashboard_sort', ordenacaoDashboard);
+  renderDashboards();
 }
 function renderDashboards(){
-  const equipamentos = devices.length ? devices : demoDevices();
+  const equipamentos = (devices.length ? devices : demoDevices()).slice().sort((a,b) => {
+    if (ordenacaoDashboard === 'comunicacao') {
+      const ordem = { online:0, warning:1, offline:2 };
+      const diferenca = (ordem[statusOf(a)] ?? 3) - (ordem[statusOf(b)] ?? 3);
+      if (diferenca) return diferenca;
+    }
+    return deviceName(a).localeCompare(deviceName(b), 'pt-BR');
+  });
   const linhas = equipamentos.map(d => {
     const mensal = kwhFromW(d.pt || 0, 24 * 30);
     const id = deviceId(d).replace(/'/g, "\\'");
@@ -1137,15 +1184,24 @@ function renderDashboards(){
       <td class="power">${svg('bolt')} ${num(mensal,0)} kWh</td>
     </tr>`;
   }).join('');
+  const cards = equipamentos.map(d => {
+    const mensal = kwhFromW(d.pt || 0, 24 * 30);
+    const id = deviceId(d).replace(/'/g, "\\'");
+    const comunicacao = statusOf(d); const medidor = meterStatusOf(d);
+    return `<article class="dashboard-card" data-dashboard-card data-search="${escapeHtml(`${deviceName(d)} ${deviceId(d)}`.toLowerCase())}" data-communication="${comunicacao}" data-meter="${medidor}" onclick="setSelectedDevice('${id}','home')"><div class="dashboard-card-head"><div><div class="dashboard-card-name">${escapeHtml(deviceName(d))}</div><span class="dashboard-card-id">ID: ${deviceId(d)}</span></div><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button></div><div class="dashboard-card-health">${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}${badgeSaude(medidor, meterStatusLabel(d))}</div><div class="dashboard-card-metrics"><div class="dashboard-card-metric"><span>Consumo hoje</span><b>${num(kwhFromW(d.pt,1),0)} kWh</b></div><div class="dashboard-card-metric"><span>Consumo mensal</span><b>${num(mensal,0)} kWh</b></div></div></article>`;
+  }).join('');
   document.getElementById('view-dashboards').innerHTML = `
     <div class="page-hd"><div class="title-row"><h1 style="font-size:24px;color:#142b44">Equipamentos monitorados</h1><span class="pill" id="dashboardFilterCount">${equipamentos.length} equipamento(s)</span></div></div>
     <div class="toolbar" style="margin-bottom:12px">
       <div class="field" style="max-width:310px"><label class="label">Buscar equipamento</label><input id="dashboardSearch" class="input" value="${escapeHtml(buscaDashboard)}" placeholder="Nome ou ID" oninput="atualizarFiltrosDashboard()"></div>
       <div class="field" style="max-width:180px"><label class="label">Comunicacao</label><select id="dashboardCommunication" class="select" onchange="atualizarFiltrosDashboard()"><option value="todos">Todas</option><option value="online" ${filtroComunicacaoDashboard==='online'?'selected':''}>Online</option><option value="warning" ${filtroComunicacaoDashboard==='warning'?'selected':''}>Atencao</option><option value="offline" ${filtroComunicacaoDashboard==='offline'?'selected':''}>Offline</option></select></div>
       <div class="field" style="max-width:210px"><label class="label">Multimedidor</label><select id="dashboardMeter" class="select" onchange="atualizarFiltrosDashboard()"><option value="todos">Todos</option><option value="online" ${filtroMedidorDashboard==='online'?'selected':''}>Operante</option><option value="warning" ${filtroMedidorDashboard==='warning'?'selected':''}>Sem diagnostico</option><option value="offline" ${filtroMedidorDashboard==='offline'?'selected':''}>Indisponivel</option></select></div>
+      <div class="field" style="max-width:170px"><label class="label">Ordenacao</label><select class="select" onchange="alterarOrdenacaoDashboard(this.value)"><option value="alfabetica" ${ordenacaoDashboard==='alfabetica'?'selected':''}>Alfabetica</option><option value="comunicacao" ${ordenacaoDashboard==='comunicacao'?'selected':''}>Status</option></select></div>
       <button class="btn ghost" onclick="limparFiltrosDashboard()">Limpar filtros</button>
+      <div class="dashboard-view-toggle" aria-label="Modo de visualizacao"><button data-dashboard-mode="tabela" class="${modoDashboard==='tabela'?'active':''}" onclick="definirModoDashboard('tabela')">Tabela</button><button data-dashboard-mode="cards" class="${modoDashboard==='cards'?'active':''}" onclick="definirModoDashboard('cards')">Cartoes</button></div>
     </div>
-    <div class="panel table-wrap"><table class="dashboard-table"><colgroup><col style="width:32%"><col style="width:20%"><col style="width:22%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="5"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>`;
+    <div id="dashboardTableView" ${modoDashboard==='tabela'?'':'hidden'} class="panel table-wrap"><table class="dashboard-table"><colgroup><col style="width:32%"><col style="width:20%"><col style="width:22%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="5"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>
+    <div id="dashboardCardsView" ${modoDashboard==='cards'?'':'hidden'}><div class="dashboard-card-grid">${cards}</div><div id="dashboardNoResultsCards" class="dashboard-empty" hidden>Nenhum equipamento encontrado para os filtros informados.</div></div>`;
   aplicarFiltrosNaTabelaDashboard();
 }
 function setDataDemanda(data){

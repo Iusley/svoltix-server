@@ -24,14 +24,28 @@ app.use(express.json());
 app.use(express.static('public'));
 
 /* ─── BANCO ───────────────────────────────────────────────── */
+/*
+ * O Vercel executa funções efêmeras. Por isso a aplicação usa o pooler
+ * transacional do Supabase e TLS, evitando falhas de conexão direta IPv6.
+ */
+const configuracaoBanco = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    }
+  : {
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT) || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      ssl: { rejectUnauthorized: false },
+    };
+
 const pool = new Pool({
-  host:     process.env.DB_HOST,
-  port:     Number(process.env.DB_PORT) || 5432,
-  database: process.env.DB_NAME,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  max: 10,
-  idleTimeoutMillis: 30000
+  ...configuracaoBanco,
+  max: 5,
+  idleTimeoutMillis: 30000,
 });
 
 pool.on('error', err => console.error('[DB] cliente inativo:', err.message));

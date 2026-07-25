@@ -285,6 +285,7 @@ app.get('/api/historico/:device', async (req, res) => {
       Math.max(parseInt(req.query.janela || req.query.segundos || req.query.seconds, 10) || 0, 0),
       30 * 24 * 3600
     );
+    const data = /^\d{4}-\d{2}-\d{2}$/.test(req.query.data || '') ? req.query.data : null;
     const hasJanela = janelaSeg > 0;
     const hasPeriodo = !hasJanela && periodo && limMs[periodo];
     const sinceExpr = hasPeriodo ? `now() - interval '${Math.floor(limMs[periodo] / 1000)} seconds'` : null;
@@ -294,7 +295,15 @@ app.get('/api/historico/:device', async (req, res) => {
     let sql;
     let params;
 
-    if (hasJanela && possuiDataCriacao) {
+    if (data && possuiDataCriacao) {
+      sql = `SELECT *, ${identificador(dispositivo)} AS device FROM telemetria
+         WHERE ${identificador(dispositivo)} = $1
+           AND "created_at" >= $3::date
+           AND "created_at" < ($3::date + interval '1 day')
+         ORDER BY ${identificador(ordenacao)} ASC
+         LIMIT $2`;
+      params = [req.params.device, limit, data];
+    } else if (hasJanela && possuiDataCriacao) {
       sql = `SELECT *, ${identificador(dispositivo)} AS device FROM telemetria
          WHERE ${identificador(dispositivo)} = $1
            AND "created_at" >= now() - ($3 * interval '1 second')

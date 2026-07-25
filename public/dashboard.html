@@ -596,6 +596,8 @@ let layoutsPorEquipamento = {};
 let editandoLayout = false;
 let temporizadorSalvarLayout = null;
 let versaoSelecao = 0;
+let versaoDemanda = 0;
+let dataDemandaSelecionada = localStorage.getItem('svoltix_data_demanda') || today();
 const COMPONENTES_INICIAIS = [
   ['saude','Situacao do equipamento','painel'], ['indicadores','Indicadores de consumo','painel'],
   ['grafico','Grafico de demanda','painel'], ['detalhes','Metricas, eficiencia e alertas','painel']
@@ -925,25 +927,31 @@ function renderDashboards(){
     </div>
     <div class="panel table-wrap"><table><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo Hoje</th><th>Consumo Mensal</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+function setDataDemanda(data){
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data || '')) return;
+  dataDemandaSelecionada = data;
+  localStorage.setItem('svoltix_data_demanda', data);
+  renderHome();
+}
 function renderHome(){
   const t = totals();
   const selected = currentDevice();
   const selectedName = deviceName(selected);
+  const dataDemanda = dataDemandaSelecionada;
   const layout = layoutAtual();
   const blocos = {
     saude: resumoSaudeEquipamento(selected),
-    indicadores: `<div class="cards grid-4">${kpi('bolt','Demanda agora','Dados insuficientes','Demanda maxima calculada')}${kpi('clock','Consumo hoje',`${num(t.todayKwh,0)} kWh`,'Clique para visualizar consumo')}${kpi('card','Consumo mensal ate agora',`${num(t.monthKwh,0)} kWh`,'Clique para visualizar sua fatura')}${kpi('chart','Previsao de consumo mensal',`${num(t.forecast,0)} kWh`,'Baseado no historico recente')}</div>`,
-    grafico: panel('Demanda - hoje', '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div>'),
+    indicadores: `<div class="cards grid-4">${kpi('bolt','Demanda agora','Dados insuficientes','Demanda maxima calculada')}${kpi('clock',`Consumo ${brDate(dataDemanda)}`,`<span id="homeConsumptionValue">${num(t.todayKwh,0)} kWh</span>`,'Calculado para o dia selecionado')}${kpi('card','Consumo mensal ate agora',`${num(t.monthKwh,0)} kWh`,'Clique para visualizar sua fatura')}${kpi('chart','Previsao de consumo mensal',`${num(t.forecast,0)} kWh`,'Baseado no historico recente')}</div>`,
+    grafico: panel(`Demanda - ${brDate(dataDemanda)}`, '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div><div class="muted" id="homeDemandStatus" style="padding-top:8px"></div>'),
     detalhes: `<div class="cards grid-3">${panel('Eficiencia', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b style="color:#fbbf24;font-size:20px">0 kWh</b><span style="color:#fbbf24">Consumo previsto nesse horario.</span></div>')}${panel('Metricas de consumo', `<div class="metric-list"><div class="metric-line"><span>Media diaria</span><b>${num(t.monthKwh/30,0)} kWh</b></div><div class="metric-line"><span>Maior consumo</span><b>${num(Math.max(t.todayKwh,60),0)} kWh</b></div><div class="metric-line"><span>Menor consumo</span><b>0 kWh</b></div></div>`)}${panel('Alertas', `<div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>${meterStatusOf(selected) === 'offline' ? 'ATIVO' : 'SEM ALERTA'}</span></div><div class="alert-body"><b>${meterStatusOf(selected) === 'offline' ? 'Multimedidor indisponivel' : 'Multimedidor operante'}</b><p>${meterStatusOf(selected) === 'offline' ? `O SVoltix ${selectedName} esta online, mas nao recebe leitura valida do multimedidor.` : `O SVoltix ${selectedName} esta recebendo leituras validas do multimedidor.`}</p></div><div class="alert-foot"><span>${tempoSemLeitura(selected) || 'Leitura valida atual'}</span><span>${deviceId(selected)}</span></div></div>`)}</div>`
   };
   const editor = editandoLayout ? `<div class="layout-drawer-backdrop" onclick="alternarEditorLayout()"></div><aside class="layout-drawer"><div class="layout-drawer-head"><div><h2>Personalizar painel</h2><p>${selectedName} · alterações salvas automaticamente</p></div><button class="btn icon ghost" onclick="alternarEditorLayout()">×</button></div><div class="layout-drawer-list">${layout.itens.map((item, indice) => `<div class="layout-drawer-item"><span class="drag-handle">⠿</span><input type="checkbox" ${item.visivel ? 'checked' : ''} onchange="alterarItemLayout(${indice},'visivel',this.checked)"><b>${item.nome}</b><select onchange="alterarItemLayout(${indice},'tamanho',this.value)"><option value="normal" ${item.tamanho === 'normal' ? 'selected' : ''}>Normal</option><option value="largo" ${item.tamanho === 'largo' ? 'selected' : ''}>Largo</option></select><button class="btn ghost" onclick="moverItemLayout(${indice},-1)" title="Mover para cima">↑</button><button class="btn ghost" onclick="moverItemLayout(${indice},1)" title="Mover para baixo">↓</button></div>`).join('')}</div><div class="layout-drawer-actions"><button class="btn ghost" onclick="restaurarLayoutPadrao()">Restaurar</button><button class="btn" onclick="salvarLayout()">Concluir</button></div></aside>` : '';
   const componentes = layout.itens.map((item, indice) => item.visivel ? `<div class="component ${item.tamanho === 'largo' ? 'wide' : ''}" ${editandoLayout ? `draggable="true" ondragstart="iniciarArrasteLayout(event,${indice})" ondragover="permitirSoltarLayout(event)" ondragleave="limparSoltarLayout(event)" ondrop="soltarLayout(event,${indice})" ondragend="finalizarArrasteLayout()"` : ''}>${blocos[item.id] || ''}</div>` : '').join('');
   document.getElementById('view-home').innerHTML = `
     <div class="toolbar" style="margin-bottom:14px">
-      <button class="btn ghost">${svg('home')} ${selectedName}</button>
-      <button class="btn ghost" onclick="editarNomeEquipamento('${deviceId(selected).replace(/'/g, "\\'")}')">Editar nome</button>
+      <button class="btn ghost" onclick="editarNomeEquipamento('${deviceId(selected).replace(/'/g, "\\'")}')">${svg('home')} ${selectedName}</button>
       <div class="seg"><button>Custo</button><button class="active">Consumo</button></div>
-      <div class="seg"><button class="active">Hoje</button><button>Mes</button><button>Ano</button></div>
+      <label class="label" style="margin:0 0 8px 4px">Dia<input class="input" style="margin-top:4px;width:145px" type="date" value="${dataDemanda}" max="${today()}" onchange="setDataDemanda(this.value)"></label>
       <span style="flex:1"></span><button class="btn" onclick="alternarEditorLayout()">${editandoLayout ? 'Fechar' : 'Personalizar'} ${svg('gear')}</button>
     </div>
     <div class="custom-grid ${editandoLayout ? 'layout-mode' : ''}">${componentes}</div>
@@ -1115,9 +1123,42 @@ function renderAll(){
   renderDashboards(); renderHome(); renderMonitor(); renderHistorico(); renderAnalise(); renderFaturamento(); renderGeracao(); renderRelatorios(); renderAlertas(); renderDownloads(); renderConfig();
   syncSelectionControls();
 }
-function drawHome(){
-  const labels = Array.from({length:12}, (_,i)=>`${String(8+i).padStart(2,'0')}:00`);
-  makeLine('homeDemand', labels, [{ label:'Demanda', data:fakeSeries('pt',12), borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.12)', tension:.35, fill:true }], 'W');
+async function drawHome(){
+  const versaoAtual = ++versaoDemanda;
+  const equipamento = ensureSelectedDevice();
+  const data = dataDemandaSelecionada;
+  const labels = Array.from({length:24}, (_,hora)=>`${String(hora).padStart(2,'0')}h`);
+  const valores = Array(24).fill(null);
+  let linhas = [];
+  try {
+    const res = await fetch(`${API}/api/historico/${encodeURIComponent(equipamento)}?data=${encodeURIComponent(data)}&limit=10000`);
+    if (!res.ok) throw new Error('historico');
+    linhas = await res.json();
+  } catch {}
+  if (versaoAtual !== versaoDemanda) return;
+  const porHora = Array.from({length:24}, () => []);
+  linhas.forEach(linha => {
+    const instante = new Date(linha.created_at);
+    if (Number.isNaN(instante.getTime())) return;
+    porHora[instante.getHours()].push(Number(linha.pt || 0) / 1000);
+  });
+  porHora.forEach((amostras, hora) => {
+    if (amostras.length) valores[hora] = amostras.reduce((s, valor) => s + valor, 0) / amostras.length;
+  });
+  makeLine('homeDemand', labels, [{ label:'Demanda', data:valores, borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.20)', tension:.35, fill:true, spanGaps:false }], 'kW');
+  const consumoKwh = linhas.length > 1
+    ? linhas.slice(1).reduce((soma, linha, indice) => {
+        const anterior = linhas[indice];
+        const intervaloHoras = Math.max(0, (new Date(linha.created_at) - new Date(anterior.created_at)) / 3600000);
+        return soma + (Number(anterior.pt || 0) / 1000) * Math.min(intervaloHoras, 1);
+      }, 0)
+    : 0;
+  const consumo = document.getElementById('homeConsumptionValue');
+  if (consumo) consumo.textContent = `${num(consumoKwh,2)} kWh`;
+  const status = document.getElementById('homeDemandStatus');
+  if (status) status.textContent = linhas.length
+    ? `${linhas.length} leituras utilizadas no dia selecionado.`
+    : 'Não há leituras para o dia selecionado.';
   makeGauge('effGauge', 6.8, 10);
 }
 async function fetchHistoryByWindow(device, seconds, limit = 5000){

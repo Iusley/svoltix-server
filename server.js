@@ -58,10 +58,23 @@ const fail = (res, err, status = 500) => {
 };
 
 let colunasTelemetria = null;
+let colunaPayloadGarantida = false;
+
+/* Preserva o JSON industrial completo sem interferir no esquema legado. */
+async function garantirColunaPayload() {
+  if (colunaPayloadGarantida) return;
+
+  await pool.query(
+    'ALTER TABLE public.telemetria ADD COLUMN IF NOT EXISTS payload JSONB'
+  );
+  colunaPayloadGarantida = true;
+}
 
 /* Obtém o esquema existente sem alterar tabelas ou dados industriais. */
 async function obterColunasTelemetria() {
   if (colunasTelemetria) return colunasTelemetria;
+
+  await garantirColunaPayload();
 
   const resultado = await pool.query(
     `SELECT column_name
@@ -109,12 +122,27 @@ async function inserirTelemetria(dados) {
     valores.unshift(dados.device);
   }
 
+  // O payload bruto permite evoluir o dashboard sem alterar o firmware.
+  if (colunas.has('payload') && !campos.includes('payload')) {
+    campos.push('payload');
+    valores.push(JSON.stringify(dados));
+  }
+
   const marcadores = valores.map((_, indice) => `$${indice + 1}`);
   await pool.query(
     `INSERT INTO telemetria (${campos.map(identificador).join(', ')})
      VALUES (${marcadores.join(', ')})`,
     valores
   );
+}
+
+/* Expõe os campos JSONB no mesmo formato esperado pelo dashboard atual. */
+function normalizarTelemetria(linhas) {
+  return linhas.map(linha => ({
+    ...linha,
+    ...(linha.payload && typeof linha.payload === 'object' ? linha.payload : {}),
+    device: linha.device || linha.dispositivo,
+  }));
 }
 
 /* ─── HEALTH CHECK ────────────────────────────────────────── */
@@ -202,7 +230,7 @@ app.get('/api/ultima-leitura/:device', async (req, res) => {
        ORDER BY ${identificador(ordenacao)} DESC LIMIT 1`,
       [req.params.device]
     );
-    res.json(result.rows[0] || null);
+    res.json(normalizarTelemetria(result.rows)[0] || null);
   } catch (e) { fail(res, e); }
 });
 
@@ -277,7 +305,7 @@ app.get('/api/historico/:device', async (req, res) => {
     }
 
     const result = await pool.query(sql, params);
-    res.json(result.rows);
+    res.json(normalizarTelemetria(result.rows));
   } catch (e) { fail(res, e); }
 });
 
@@ -290,7 +318,7 @@ app.get('/ultimos', async (_, res) => {
     const result = await pool.query(
       `SELECT * FROM telemetria ORDER BY id DESC LIMIT 50`
     );
-    res.json(result.rows);
+    res.json(normalizarTelemetria(result.rows));
   } catch (e) { fail(res, e); }
 });
 
@@ -303,7 +331,7 @@ app.get('/resumo', async (_, res) => {
       pool.query(`SELECT * FROM telemetria ORDER BY id DESC LIMIT 1`),
       pool.query(`SELECT COUNT(*) FROM telemetria`)
     ]);
-    res.json({ ultimo: ultimo.rows[0] || null, total: total.rows[0].count });
+    res.json({ ultimo: normalizarTelemetria(ultimo.rows)[0] || null, total: total.rows[0].count });
   } catch (e) { fail(res, e); }
 });
 
@@ -313,7 +341,7 @@ app.get('/resumo', async (_, res) => {
 app.get('/grupos', async (_, res) => {
   try {
     const result = await pool.query(`SELECT dispositivo, nome_grupo FROM grupos`);
-    res.json(result.rows);
+    res.json(normalizarTelemetria(result.rows));
   } catch (e) { fail(res, e); }
 });
 

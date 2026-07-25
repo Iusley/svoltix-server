@@ -101,6 +101,8 @@ button { cursor: pointer; }
 }
 .area-select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(94,234,212,.15); }
 .area-select option { background:#102a46; color:#fff; }
+.compact-device-control { position:relative; }
+.compact-device-visual { display:none; }
 .nav { padding: 8px 0; flex: 1; overflow: auto; }
 .nav-item {
   display: flex;
@@ -158,8 +160,12 @@ body.sidebar-collapsed .brand { padding:14px 12px; justify-content:center; }
 body.sidebar-collapsed .brand-copy, body.sidebar-collapsed .area-switch, body.sidebar-collapsed .sidebar-footer, body.sidebar-collapsed .nav-item span, body.sidebar-collapsed .nav-badge { display:none; }
 body.sidebar-collapsed .area-switch { display:block; padding:10px 12px; }
 body.sidebar-collapsed .area-label { display:none; }
-body.sidebar-collapsed .area-select { width:40px; min-width:40px; height:38px; padding:0 3px; color:transparent; font-size:0; background:#173b5d; }
-body.sidebar-collapsed .area-select option { color:#fff; font-size:13px; }
+body.sidebar-collapsed .compact-device-control { width:40px; height:38px; }
+body.sidebar-collapsed .compact-device-visual { width:40px; height:38px; display:flex; align-items:center; justify-content:center; gap:1px; border:1px solid rgba(94,234,212,.4); border-radius:8px; background:#173b5d; color:#8eeedd; box-shadow:inset 0 1px 0 rgba(255,255,255,.05); pointer-events:none; }
+body.sidebar-collapsed .compact-device-visual svg { width:17px; height:17px; }
+body.sidebar-collapsed .compact-device-visual .device-chevron { width:12px; height:12px; color:#fff; }
+body.sidebar-collapsed .area-select { position:absolute; inset:0; z-index:1; width:40px; min-width:40px; height:38px; opacity:0; cursor:pointer; }
+body.sidebar-collapsed .compact-device-control:focus-within .compact-device-visual { border-color:var(--accent); box-shadow:0 0 0 3px rgba(94,234,212,.15); }
 body.sidebar-collapsed .sidebar-collapse { position:absolute; right:-12px; top:16px; background:var(--panel-2); border:1px solid var(--panel-border); box-shadow:0 4px 12px rgba(0,0,0,.18); }
 body.sidebar-collapsed .sidebar-collapse svg { transform:rotate(180deg); }
 body.sidebar-collapsed .nav { padding-top:12px; }
@@ -604,6 +610,9 @@ tbody tr:hover { background: #edf8fb; }
   body.sidebar-collapsed .brand-copy, body.sidebar-collapsed .area-switch, body.sidebar-collapsed .sidebar-footer, body.sidebar-collapsed .nav-item span, body.sidebar-collapsed .nav-badge { display:initial; }
   body.sidebar-collapsed .sidebar-collapse { position:static; background:transparent; border:0; box-shadow:none; }
   body.sidebar-collapsed .sidebar-collapse svg { transform:none; }
+  body.sidebar-collapsed .compact-device-control { width:auto; height:auto; }
+  body.sidebar-collapsed .compact-device-visual { display:none; }
+  body.sidebar-collapsed .area-select { position:static; width:100%; min-width:0; height:auto; opacity:1; cursor:pointer; }
   body.sidebar-collapsed .nav-item { justify-content:flex-start; height:36px; padding:0 14px; border-right:0; border-left:3px solid transparent; }
   body.sidebar-collapsed .nav-item.active { border-right-color:transparent; border-left-color:var(--accent); }
   .grid-4, .grid-3, .grid-2, .cfg-grid, .download-layout, .tree-layout { grid-template-columns: 1fr; }
@@ -628,7 +637,7 @@ tbody tr:hover { background: #edf8fb; }
       <div class="brand-copy"><div class="brand-name">SVoltix</div></div>
       <button class="sidebar-collapse" onclick="alternarMenuCompacto()" title="Recolher menu" aria-label="Recolher menu"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
-    <div class="area-switch"><span class="area-label">Empresa / equipamento</span><select class="area-select" id="areaSelect" onchange="setSelectedDevice(this.value)"><option>Carregando...</option></select></div>
+    <div class="area-switch"><span class="area-label">Empresa / equipamento</span><div class="compact-device-control"><span class="compact-device-visual" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19h16M6 19V8l6-4 6 4v11M9 19v-5h6v5M8 9h.01M16 9h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><svg class="device-chevron" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><select class="area-select" id="areaSelect" onchange="setSelectedDevice(this.value)"><option>Carregando...</option></select></div></div>
     <nav class="nav" id="nav"></nav>
     <div class="sidebar-footer">
       <div class="avatar">S</div>

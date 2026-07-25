@@ -328,9 +328,8 @@ input:focus {
 </div>
 
 <script>
-const TUNNEL_API = 'https://printer-foot-beauty-spectrum.trycloudflare.com';
-const savedApi = localStorage.getItem('svoltix_api');
-const API = savedApi && !/localhost|127\.0\.0\.1|\[::1\]|::1/i.test(savedApi) ? savedApi : TUNNEL_API;
+// Em produção, frontend e API são atendidos pelo mesmo domínio do Vercel.
+const API = window.location.origin;
 localStorage.setItem('svoltix_api', API);
 const LOCAL_DEMO = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
 

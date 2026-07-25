@@ -525,9 +525,8 @@ tbody tr:hover { background: #edf8fb; }
 <div class="toast" id="toast"></div>
 
 <script>
-const TUNNEL_API = 'https://printer-foot-beauty-spectrum.trycloudflare.com';
-const savedApi = localStorage.getItem('svoltix_api');
-const API = savedApi && !/localhost|127\.0\.0\.1|\[::1\]|::1/i.test(savedApi) ? savedApi : TUNNEL_API;
+// Em produção, frontend e API são atendidos pelo mesmo domínio do Vercel.
+const API = window.location.origin;
 localStorage.setItem('svoltix_api', API);
 let devices = [];
 let historyRows = [];

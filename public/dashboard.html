@@ -37,14 +37,20 @@ body {
   font-size: 13px;
 }
 html:has(body.dark), body.dark, body.dark .content, body.dark .view { background:#07101d; color:#dce9f6; }
-body.dark .panel, body.dark .equipment-health, body.dark .home-context, body.dark .btn.ghost, body.dark .input, body.dark .select, body.dark .layout-drawer, body.dark .layout-drawer-item, body.dark .chart-fullscreen { background:#102035; color:#dce9f6; border-color:#29435f; }
-body.dark .panel-hd, body.dark h1, body.dark .metric-line b, body.dark .power { color:#7dd3fc; }
-body.dark .label, body.dark .muted, body.dark .health-detail { color:#a8bbd0; }
-body.dark th { background:#172b43; color:#c4d5e8; }
+body.dark .topbar { background:#0c182a; border-bottom:1px solid #1d314a; }
+body.dark .panel, body.dark .equipment-health, body.dark .home-context, body.dark .btn.ghost, body.dark .input, body.dark .select, body.dark .layout-drawer, body.dark .layout-drawer-item, body.dark .chart-fullscreen, body.dark .dashboard-card, body.dark .dashboard-view-toggle { background:#102035; color:#dce9f6; border-color:#29435f; }
+body.dark .panel-hd, body.dark h1, body.dark h1[style], body.dark .metric-line b, body.dark .power, body.dark .dashboard-card-name, body.dark .home-modal-head h2 { color:#7dd3fc !important; }
+body.dark .label, body.dark .muted, body.dark .health-detail, body.dark .id-note, body.dark .dashboard-card-id, body.dark .dashboard-card-metric span, body.dark .dashboard-empty, body.dark .widget-note { color:#a8bbd0; }
+body.dark th { background:#172b43; color:#c4d5e8; border-color:#29435f; }
+body.dark td { color:#dce9f6; border-color:#29435f; }
 body.dark tbody tr:nth-child(even) { background:#10243a; }
 body.dark tbody tr:hover { background:#16344f; }
 body.dark .seg { background:#1b344e; }
 body.dark .layout-drawer-actions { background:#102035; }
+body.dark .notice { background:#123653; border-color:#245276; color:#bde8ff; }
+body.dark .dashboard-card-metric { background:#172f49; }
+body.dark .dashboard-view-toggle button { color:#aec4da; }
+body.dark .dashboard-view-toggle button.active { background:#2b78aa; color:#fff; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 .app { min-height: 100vh; display: flex; }
@@ -376,6 +382,9 @@ tbody tr:hover { background: #edf8fb; }
 .dashboard-row td { height: 42px; }
 .dashboard-table { table-layout:fixed; }
 .dashboard-table th, .dashboard-table td { overflow:hidden; text-overflow:ellipsis; }
+.dashboard-table th { text-align:center; }
+.dashboard-table td:not(:first-child) { text-align:center; vertical-align:middle; }
+.dashboard-table td:not(:first-child) .health-badge { margin-inline:auto; }
 .dashboard-view-toggle { display:flex; gap:4px; padding:3px; border:1px solid #d5e0eb; border-radius:7px; background:#fff; }
 .dashboard-view-toggle button { height:27px; border:0; border-radius:5px; padding:0 10px; background:transparent; color:#53708d; font-size:11px; font-weight:800; }
 .dashboard-view-toggle button.active { background:#23628f; color:#fff; }
@@ -873,7 +882,7 @@ function escapeHtml(valor){ return String(valor ?? '').replace(/[&<>"']/g, c => 
 function alterarGrandezaHome(valor){ if (!GRANDEZAS_HOME[valor]) return; grandezaHome = valor; localStorage.setItem('svoltix_home_metric', valor); renderHome(); }
 function alterarVisualizacaoHome(valor){ if (!['area','linha','barras'].includes(valor)) return; visualizacaoHome = valor; localStorage.setItem('svoltix_home_view', valor); renderHome(); }
 function deslocarDataDemanda(dias){ const base = new Date(`${dataDemandaSelecionada}T12:00:00`); base.setDate(base.getDate() + dias); const alvo = base.toISOString().slice(0,10); if (alvo <= today()) setDataDemanda(alvo); }
-function alternarTema(){ const escuro = !document.body.classList.contains('dark'); document.body.classList.toggle('dark', escuro); localStorage.setItem('svoltix_tema', escuro ? 'dark' : 'light'); renderHome(); }
+function alternarTema(){ const escuro = !document.body.classList.contains('dark'); document.body.classList.toggle('dark', escuro); localStorage.setItem('svoltix_tema', escuro ? 'dark' : 'light'); renderAll(); setTimeout(resizeCharts, 80); }
 function aplicarTemaSalvo(){ document.body.classList.toggle('dark', localStorage.getItem('svoltix_tema') === 'dark'); }
 function horaLeitura(linha){ const data = new Date(linha.created_at); return Number.isNaN(data.getTime()) ? '--:--' : data.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 function consumoKwhDasLeituras(linhas){

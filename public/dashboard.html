@@ -553,9 +553,27 @@ body.dark .svoltix-map-label span { color:#9fb5ca; }
 .chart-tools { position:absolute; z-index:5; top:9px; right:10px; display:flex; align-items:center; gap:3px; padding:4px; border:1px solid rgba(148,163,184,.34); border-radius:10px; background:rgba(255,255,255,.88); box-shadow:0 5px 16px rgba(20,48,76,.13); backdrop-filter:blur(8px); opacity:.88; transition:opacity .16s ease,transform .16s ease; }
 .chart-box:hover .chart-tools, .chart-tools:focus-within { opacity:1; transform:translateY(-1px); }
 .chart-tool { width:30px; height:30px; display:grid; place-items:center; border:0; border-radius:7px; background:transparent; color:#23628f; transition:background .16s ease,color .16s ease,transform .16s ease; }
+.chart-tool.reset { width:auto; min-width:30px; grid-auto-flow:column; gap:5px; padding:0 8px; font-weight:800; font-size:11px; }
+.chart-tool-text { display:inline; }
+.chart-tools .chart-tool[onclick^="redefinirZoomGrafico"] { display:none; }
 .chart-tool:hover { background:#e6f3fb; color:#0f527e; transform:translateY(-1px); }
 .chart-tool:focus-visible { outline:0; box-shadow:0 0 0 3px rgba(56,189,248,.26); }
 .chart-tool svg { width:17px; height:17px; }
+.chart-axis-editor { position:absolute; z-index:6; top:48px; right:10px; width:218px; padding:11px; display:grid; gap:8px; background:rgba(255,255,255,.97); border:1px solid #cbd9e7; border-radius:10px; box-shadow:0 12px 28px rgba(20,48,76,.2); }
+.chart-axis-editor[hidden] { display:none; }
+.chart-axis-editor b { font-size:12px; color:#193a5b; }
+.chart-axis-fields { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.chart-axis-editor label { display:grid; gap:4px; font-size:10px; color:#5e7590; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+.chart-axis-editor input { width:100%; height:31px; padding:5px 7px; border:1px solid #cddceb; border-radius:6px; color:#193a5b; background:#fff; }
+.chart-axis-actions { display:flex; justify-content:flex-end; gap:6px; }
+.chart-axis-actions button { min-height:28px; padding:0 9px; border-radius:6px; border:1px solid #cddceb; background:#fff; color:#23628f; font-weight:800; font-size:11px; }
+.chart-axis-actions button.apply { background:#23628f; color:#fff; border-color:#23628f; }
+.chart-selection { position:absolute; z-index:4; top:0; bottom:0; display:none; pointer-events:none; border-left:1px solid #0ea5b7; border-right:1px solid #0ea5b7; background:rgba(45,212,191,.16); box-shadow:inset 0 0 0 1px rgba(45,212,191,.12); }
+body.dark .chart-axis-editor { background:rgba(16,32,53,.98); border-color:#35506f; }
+body.dark .chart-axis-editor b { color:#bdeafe; }
+body.dark .chart-axis-editor label { color:#a8bbd0; }
+body.dark .chart-axis-editor input, body.dark .chart-axis-actions button { background:#102840; color:#dce9f6; border-color:#35506f; }
+body.dark .chart-axis-actions button.apply { background:#187a9b; color:#fff; border-color:#187a9b; }
 body.dark .chart-tools { background:rgba(16,32,53,.9); border-color:#35506f; }
 body.dark .chart-tool { color:#7dd3fc; }
 body.dark .chart-tool:hover { background:#173b59; color:#bdeafe; }
@@ -1020,6 +1038,7 @@ const icons = {
   download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   copy: '<rect x="8" y="8" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
   zoomIn: '<circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="M11 8v6M8 11h6M16 16l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  sliders: '<path d="M4 7h16M4 17h16M8 4v6M16 14v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   zoomOut: '<circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="M8 11h6M16 16l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   resetZoom: '<path d="M20 11a8 8 0 1 0 1.2 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 5v6h-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   expand: '<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -1263,12 +1282,58 @@ function montarControlesGrafico(id){
   const caixa = canvas?.closest('.chart-box');
   if (!caixa) return;
   caixa.querySelector(`.chart-tools[data-chart-id="${id}"]`)?.remove();
+  caixa.querySelector(`.chart-axis-editor[data-chart-axis-id="${id}"]`)?.remove();
+  caixa.querySelector(`.chart-selection[data-chart-selection-id="${id}"]`)?.remove();
   caixa.insertAdjacentHTML('beforeend', `<div class="chart-tools" data-chart-id="${id}" role="toolbar" aria-label="Controles do gráfico">
     <button class="chart-tool" type="button" onclick="zoomGrafico('${id}','in')" title="Aproximar escala vertical" aria-label="Aproximar escala vertical">${svg('zoomIn')}</button>
+    <button class="chart-tool" type="button" onclick="abrirAjustesEixoGrafico('${id}')" title="Ajustar escala vertical" aria-label="Ajustar escala vertical">${svg('sliders')}</button>
+    <button class="chart-tool reset" type="button" onclick="redefinirZoomCompleto('${id}')" title="Restaurar zoom e escala" aria-label="Restaurar zoom e escala">${svg('resetZoom')}<span class="chart-tool-text">Reset</span></button>
     <button class="chart-tool" type="button" onclick="redefinirZoomGrafico('${id}')" title="Restaurar escala do gráfico" aria-label="Restaurar escala do gráfico">${svg('resetZoom')}</button>
     <button class="chart-tool" type="button" onclick="zoomGrafico('${id}','out')" title="Afastar escala vertical" aria-label="Afastar escala vertical">${svg('zoomOut')}</button>
     <button class="chart-tool" type="button" onclick="copiarGrafico('${id}')" title="Copiar gráfico como imagem" aria-label="Copiar gráfico como imagem">${svg('copy')}</button>
-  </div>`);
+  </div>
+  <div class="chart-axis-editor" data-chart-axis-id="${id}" hidden>
+    <b>Escala vertical</b>
+    <div class="chart-axis-fields">
+      <label>Mínimo<input id="chartYMin-${id}" type="number" step="any" inputmode="decimal"></label>
+      <label>Máximo<input id="chartYMax-${id}" type="number" step="any" inputmode="decimal"></label>
+    </div>
+    <div class="chart-axis-actions">
+      <button type="button" onclick="fecharAjustesEixoGrafico('${id}')">Cancelar</button>
+      <button class="apply" type="button" onclick="aplicarEixoGrafico('${id}')">Aplicar</button>
+    </div>
+  </div>
+  <div class="chart-selection" data-chart-selection-id="${id}" aria-hidden="true"></div>`);
+  inicializarSelecaoGrafico(id);
+}
+function abrirAjustesEixoGrafico(id){
+  const grafico = charts[id];
+  const editor = document.querySelector(`.chart-axis-editor[data-chart-axis-id="${id}"]`);
+  if (!grafico || !editor) return;
+  document.querySelectorAll('.chart-axis-editor').forEach(item => { if (item !== editor) item.hidden = true; });
+  const min = document.getElementById(`chartYMin-${id}`);
+  const max = document.getElementById(`chartYMax-${id}`);
+  min.value = grafico.options.scales.y.min;
+  max.value = grafico.options.scales.y.max;
+  editor.hidden = !editor.hidden;
+  if (!editor.hidden) min.focus();
+}
+function fecharAjustesEixoGrafico(id){
+  const editor = document.querySelector(`.chart-axis-editor[data-chart-axis-id="${id}"]`);
+  if (editor) editor.hidden = true;
+}
+function aplicarEixoGrafico(id){
+  const grafico = charts[id];
+  const min = Number(document.getElementById(`chartYMin-${id}`)?.value);
+  const max = Number(document.getElementById(`chartYMax-${id}`)?.value);
+  if (!grafico || !Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    toast('Informe um mínimo menor que o máximo');
+    return;
+  }
+  grafico.options.scales.y.min = min;
+  grafico.options.scales.y.max = max;
+  grafico.update();
+  fecharAjustesEixoGrafico(id);
 }
 function zoomGrafico(id, direcao){
   const grafico = charts[id];
@@ -1287,7 +1352,69 @@ function redefinirZoomGrafico(id){
   if (!grafico || !eixoBase) return;
   grafico.options.scales.y.min = eixoBase.min;
   grafico.options.scales.y.max = eixoBase.max;
+  delete grafico.options.scales.x.min;
+  delete grafico.options.scales.x.max;
   grafico.update();
+  fecharAjustesEixoGrafico(id);
+}
+function redefinirZoomCompleto(id){ redefinirZoomGrafico(id); }
+function inicializarSelecaoGrafico(id){
+  const canvas = document.getElementById(id);
+  const grafico = charts[id];
+  const caixa = canvas?.closest('.chart-box');
+  const faixa = caixa?.querySelector(`.chart-selection[data-chart-selection-id="${id}"]`);
+  if (!canvas || !grafico || !caixa || !faixa) return;
+  canvas._svoltixSelecaoAbort?.abort();
+  const controlador = new AbortController();
+  canvas._svoltixSelecaoAbort = controlador;
+  let inicioX = null;
+  let inicioIndice = null;
+  const obterIndice = evento => {
+    const retangulo = canvas.getBoundingClientRect();
+    const escalaX = grafico.scales.x;
+    const pixel = Math.max(escalaX.left, Math.min(escalaX.right, (evento.clientX - retangulo.left) * (canvas.width / retangulo.width)));
+    return Math.max(0, Math.min(grafico.data.labels.length - 1, Math.round(escalaX.getValueForPixel(pixel))));
+  };
+  const mostrarFaixa = evento => {
+    const retanguloCanvas = canvas.getBoundingClientRect();
+    const retanguloCaixa = caixa.getBoundingClientRect();
+    const atual = Math.max(retanguloCanvas.left, Math.min(retanguloCanvas.right, evento.clientX));
+    faixa.style.display = 'block';
+    faixa.style.left = `${Math.min(inicioX, atual) - retanguloCaixa.left}px`;
+    faixa.style.width = `${Math.max(2, Math.abs(atual - inicioX))}px`;
+    faixa.style.top = `${retanguloCanvas.top - retanguloCaixa.top}px`;
+    faixa.style.bottom = 'auto';
+    faixa.style.height = `${retanguloCanvas.height}px`;
+  };
+  const finalizar = evento => {
+    if (inicioX === null) return;
+    const inicio = inicioIndice;
+    const fim = obterIndice(evento);
+    const alterou = Math.abs(fim - inicio) >= 1;
+    faixa.style.display = 'none';
+    try { canvas.releasePointerCapture(evento.pointerId); } catch (_) {}
+    inicioX = null;
+    inicioIndice = null;
+    if (!alterou) return;
+    grafico.options.scales.x.min = Math.min(inicio, fim);
+    grafico.options.scales.x.max = Math.max(inicio, fim);
+    grafico.update();
+  };
+  canvas.addEventListener('pointerdown', evento => {
+    if (evento.button !== 0 || grafico.data.labels.length < 2) return;
+    inicioX = evento.clientX;
+    inicioIndice = obterIndice(evento);
+    canvas.setPointerCapture(evento.pointerId);
+    evento.preventDefault();
+  }, { signal: controlador.signal });
+  canvas.addEventListener('pointermove', evento => { if (inicioX !== null) mostrarFaixa(evento); }, { signal: controlador.signal });
+  canvas.addEventListener('pointerup', finalizar, { signal: controlador.signal });
+  canvas.addEventListener('pointercancel', evento => {
+    faixa.style.display = 'none';
+    inicioX = null;
+    inicioIndice = null;
+    try { canvas.releasePointerCapture(evento.pointerId); } catch (_) {}
+  }, { signal: controlador.signal });
 }
 async function copiarGrafico(id){
   const canvas = document.getElementById(id);
@@ -1317,14 +1444,13 @@ function calcularFaixaEixoY(datasets, opcoes={}){
   const intervaloMinimo = Number(opcoes.minimoIntervalo) || Math.max(Math.abs(maior) * .08, 1);
   const intervalo = Math.max(maior - menor, intervaloMinimo);
   const margem = Math.max(intervalo * .14, intervaloMinimo * .1);
-  let min = menor - margem;
+  let min = 0;
   let max = maior + margem;
-  if (opcoes.zeroBase || (menor >= 0 && maior === 0)) min = 0;
-  if (Number.isFinite(opcoes.limiteInferior)) min = Math.max(opcoes.limiteInferior, min);
+  if (Number.isFinite(opcoes.limiteInferior)) min = opcoes.limiteInferior;
   if (Number.isFinite(opcoes.limiteSuperior)) max = Math.min(opcoes.limiteSuperior, max);
   if (max <= min) {
     const ajuste = Math.max(intervaloMinimo / 2, Math.abs(maior) * .03, 0.01);
-    min = Number.isFinite(opcoes.limiteInferior) ? opcoes.limiteInferior : menor - ajuste;
+    min = Number.isFinite(opcoes.limiteInferior) ? opcoes.limiteInferior : 0;
     max = Number.isFinite(opcoes.limiteSuperior) ? opcoes.limiteSuperior : maior + ajuste;
   }
   return { min, max, precisao };

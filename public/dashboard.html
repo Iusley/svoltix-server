@@ -1042,6 +1042,7 @@ const navItems = [
 function svg(name){ return `<svg viewBox="0 0 24 24" fill="none">${icons[name]}</svg>`; }
 function money(v){ return Number(v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
 function num(v){ return Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits:1, minimumFractionDigits:1 }); }
+function numFatorPotencia(v){ return Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits:2, minimumFractionDigits:2 }); }
 function kwhFromW(w, hours=24){ return Math.max(0, Number(w || 0) * hours / 1000); }
 function today(){ return new Date().toISOString().slice(0,10); }
 function brDate(date=today()){ const [y,m,d] = date.slice(0,10).split('-'); return `${d}/${m}/${y}`; }
@@ -1050,7 +1051,7 @@ const GRANDEZAS_HOME = {
   qa:{ titulo:'Potencia reativa A', unidade:'kVAr', divisor:1000 }, st:{ titulo:'Potencia aparente', unidade:'kVA', divisor:1000 },
   va:{ titulo:'Tensao fase A', unidade:'V', divisor:1 }, vb:{ titulo:'Tensao fase B', unidade:'V', divisor:1 }, vc:{ titulo:'Tensao fase C', unidade:'V', divisor:1 },
   ia:{ titulo:'Corrente fase A', unidade:'A', divisor:1 }, ib:{ titulo:'Corrente fase B', unidade:'A', divisor:1 }, ic:{ titulo:'Corrente fase C', unidade:'A', divisor:1 },
-  fpt:{ titulo:'Fator de potencia', unidade:'', divisor:1 }, hz:{ titulo:'Frequencia', unidade:'Hz', divisor:1 }
+  fpt:{ titulo:'Fator de potencia', unidade:'', divisor:1, precisao:2, eixo:{ minimoIntervalo:.02, limiteInferior:0, limiteSuperior:1 } }, hz:{ titulo:'Frequencia', unidade:'Hz', divisor:1, eixo:{ minimoIntervalo:.5 } }
 };
 function metaGrandezaHome(){ return GRANDEZAS_HOME[grandezaHome] || GRANDEZAS_HOME.pt; }
 function escapeHtml(valor){ return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
@@ -1241,13 +1242,44 @@ function toast(msg){
 }
 function destroyChart(id){ if (charts[id]) { charts[id].destroy(); charts[id] = null; } }
 function resizeCharts(){ Object.values(charts).forEach(c => c && c.resize()); }
-function makeLine(id, labels, datasets, yTitle='', tipo='line'){
+function calcularFaixaEixoY(datasets, opcoes={}){
+  const valores = datasets.flatMap(serie => (serie.data || []).filter(valor => valor !== null && valor !== '').map(Number).filter(Number.isFinite));
+  const precisao = opcoes.precisao === 2 ? 2 : 1;
+  if (!valores.length) return { min:0, max:1, precisao };
+  const menor = Math.min(...valores);
+  const maior = Math.max(...valores);
+  const intervaloMinimo = Number(opcoes.minimoIntervalo) || Math.max(Math.abs(maior) * .08, 1);
+  const intervalo = Math.max(maior - menor, intervaloMinimo);
+  const margem = Math.max(intervalo * .14, intervaloMinimo * .1);
+  let min = menor - margem;
+  let max = maior + margem;
+  if (opcoes.zeroBase || (menor >= 0 && maior === 0)) min = 0;
+  if (Number.isFinite(opcoes.limiteInferior)) min = Math.max(opcoes.limiteInferior, min);
+  if (Number.isFinite(opcoes.limiteSuperior)) max = Math.min(opcoes.limiteSuperior, max);
+  if (max <= min) {
+    const ajuste = Math.max(intervaloMinimo / 2, Math.abs(maior) * .03, 0.01);
+    min = Number.isFinite(opcoes.limiteInferior) ? opcoes.limiteInferior : menor - ajuste;
+    max = Number.isFinite(opcoes.limiteSuperior) ? opcoes.limiteSuperior : maior + ajuste;
+  }
+  return { min, max, precisao };
+}
+function rotuloTemporalDoEixo(labels, indice){
+  const rotulo = String(labels[indice] || '');
+  const partes = rotulo.split(' ');
+  if (partes.length < 2) return rotulo;
+  const dataAnterior = indice > 0 ? String(labels[indice - 1] || '').split(' ')[0] : '';
+  return indice === 0 || partes[0] !== dataAnterior ? [partes[0], partes.slice(1).join(' ')] : partes.slice(1).join(' ');
+}
+function makeLine(id, labels, datasets, yTitle='', tipo='line', opcoes={}){
   destroyChart(id);
   const el = document.getElementById(id);
   if (!el || !window.Chart) return;
   const escuro = document.body.classList.contains('dark');
   const texto = escuro ? '#b9cce0' : '#445a72';
   const grade = escuro ? '#263e58' : '#e1e9f2';
+  const eixo = calcularFaixaEixoY(datasets, { ...opcoes, zeroBase: tipo === 'bar' || opcoes.zeroBase });
+  const unidade = opcoes.unidade || '';
+  const formatar = valor => eixo.precisao === 2 ? numFatorPotencia(valor) : num(valor);
   charts[id] = new Chart(el, {
     type: tipo,
     data: { labels, datasets },
@@ -1255,10 +1287,10 @@ function makeLine(id, labels, datasets, yTitle='', tipo='line'){
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode:'index', intersect:false },
-      plugins: { legend: { position:'top', align:'end', labels: { color:texto, usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:16, font:{ size:11, weight:'600' } } }, tooltip:{ padding:10, titleFont:{weight:'700'}, bodyFont:{weight:'600'}, callbacks:{ label: contexto => `${contexto.dataset.label}: ${num(contexto.parsed.y)}` } } },
+      plugins: { legend: { position:'top', align:'end', labels: { color:texto, usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:16, font:{ size:11, weight:'600' } } }, tooltip:{ padding:10, titleFont:{weight:'700'}, bodyFont:{weight:'600'}, callbacks:{ title: contexto => contexto?.[0]?.label || '', label: contexto => `${contexto.dataset.label}: ${formatar(contexto.parsed.y)}${unidade ? ` ${unidade}` : ''}` } } },
       scales: {
-        x: { grid: { color:grade }, ticks:{ color:texto, maxTicksLimit: 9 } },
-        y: { beginAtZero:true, title:{ display:!!yTitle, text:yTitle, color:texto }, grid: { color:grade }, ticks:{ color:texto, callback: valor => num(valor) } }
+        x: { grid: { color:grade }, ticks:{ color:texto, maxTicksLimit: 9, callback: (_valor, indice) => rotuloTemporalDoEixo(labels, indice) } },
+        y: { min:eixo.min, max:eixo.max, title:{ display:!!yTitle, text:yTitle, color:texto }, grid: { color:grade }, ticks:{ color:texto, maxTicksLimit:6, callback: valor => formatar(valor) } }
       }
     }
   });
@@ -1281,12 +1313,12 @@ function fakeSeries(field='pt', len=14){
   });
 }
 const METRICAS_MONITORAMENTO = {
-  pt: { titulo:'Potência ativa', unidade:'kW', escala:0.001, total:['pt'], fases:[['pa'],['pb'],['pc']], regra:'soma', maximo:100 },
-  qt: { titulo:'Potência reativa', unidade:'kvar', escala:0.001, total:['qt','q'], fases:[['qa'],['qb'],['qc']], regra:'soma', maximo:100 },
-  va: { titulo:'Tensão', unidade:'V', escala:1, total:['vt','v'], fases:[['va'],['vb'],['vc']], regra:'media', maximo:500 },
-  ia: { titulo:'Corrente', unidade:'A', escala:1, total:['it','i'], fases:[['ia'],['ib'],['ic']], regra:'soma', maximo:200 },
-  fpt: { titulo:'Fator de potência', unidade:'', escala:1, total:['fpt','fp'], fases:[['fpa'],['fpb'],['fpc']], regra:'media', maximo:1 },
-  hz: { titulo:'Frequência', unidade:'Hz', escala:1, total:['hz','frequencia'], fases:[['hz'],['hz'],['hz']], regra:'media', maximo:70 }
+  pt: { titulo:'Potência ativa', unidade:'kW', escala:0.001, total:['pt'], fases:[['pa'],['pb'],['pc']], regra:'soma', maximo:100, minimoIntervalo:.2 },
+  qt: { titulo:'Potência reativa', unidade:'kvar', escala:0.001, total:['qt','q'], fases:[['qa'],['qb'],['qc']], regra:'soma', maximo:100, minimoIntervalo:.2 },
+  va: { titulo:'Tensão', unidade:'V', escala:1, total:['vt','v'], fases:[['va'],['vb'],['vc']], regra:'media', maximo:500, minimoIntervalo:5, limiteInferior:0 },
+  ia: { titulo:'Corrente', unidade:'A', escala:1, total:['it','i'], fases:[['ia'],['ib'],['ic']], regra:'soma', maximo:200, minimoIntervalo:.5, limiteInferior:0 },
+  fpt: { titulo:'Fator de potência', unidade:'', escala:1, total:['fpt','fp'], fases:[['fpa'],['fpb'],['fpc']], regra:'media', maximo:1, precisao:2, minimoIntervalo:.02, limiteInferior:0, limiteSuperior:1 },
+  hz: { titulo:'Frequência', unidade:'Hz', escala:1, total:['hz','frequencia'], fases:[['hz'],['hz'],['hz']], regra:'media', maximo:70, minimoIntervalo:.5 }
 };
 function valorNumericoDaMedicao(linha, campos){
   for (const campo of campos) {
@@ -1307,8 +1339,8 @@ function valoresDaGrandeza(linha, metrica){
   return { total:(totalBruto ?? calculado) * definicao.escala, fases, definicao };
 }
 function formatarValorMonitoramento(valor, definicao){
-  const casas = definicao.unidade === 'V' || definicao.unidade === 'A' ? 1 : 2;
-  return `${num(valor, casas)}${definicao.unidade ? ` ${definicao.unidade}` : ''}`;
+  const valorFormatado = definicao.precisao === 2 ? numFatorPotencia(valor) : num(valor);
+  return `${valorFormatado}${definicao.unidade ? ` ${definicao.unidade}` : ''}`;
 }
 function controlsHtml(){
   const metricaAtual = localStorage.getItem('svoltix_monitor_metric') || 'pt';
@@ -2125,7 +2157,7 @@ function preencherWidgetsHome(linhas){
   const effText = document.getElementById('effText'); if (effText) effText.textContent = !linhas.length ? 'Nao existem leituras para o periodo selecionado.' : eficiencia >= 7 ? 'Perfil dentro do padrao operacional recente.' : 'Verifique equipamentos com maior demanda no horario de pico.';
   const metrics = document.getElementById('homeMetrics');
   if (metrics) metrics.innerHTML = linhas.length ? [
-    ['Consumo do dia', `${num(resumo.consumo,2)} kWh`], ['Demanda maxima', `${num(resumo.maior,2)} kW`], ['Demanda media', `${num(resumo.media,2)} kW`], ['Menor demanda', `${num(resumo.menor,2)} kW`], ['Fator de potencia', num(Number(selected.fpt || 0),2)]
+    ['Consumo do dia', `${num(resumo.consumo,2)} kWh`], ['Demanda maxima', `${num(resumo.maior,2)} kW`], ['Demanda media', `${num(resumo.media,2)} kW`], ['Menor demanda', `${num(resumo.menor,2)} kW`], ['Fator de potencia', numFatorPotencia(Number(selected.fpt || 0))]
   ].map(([nome,valor]) => `<div class="metric-line"><span>${nome}</span><b>${valor}</b></div>`).join('') : '<div class="empty">Sem dados para calcular metricas.</div>';
   const totalPeriodo = resumo.periodos.reduce((s,p)=>s+p.consumo,0);
   const periodos = document.getElementById('homePeriods');
@@ -2136,7 +2168,7 @@ function preencherWidgetsHome(linhas){
     tabela.innerHTML = `<table><thead><tr><th>Hora</th><th>Demanda</th><th>Tarifa</th><th>Status</th></tr></thead><tbody>${porHora.map((amostras,hora) => { const valor = amostras.length ? amostras.reduce((s,v)=>s+v,0)/amostras.length : null; const ponta = hora >= 18 && hora < 21; return `<tr><td>${String(hora).padStart(2,'0')}:00</td><td>${valor === null ? '--' : `${num(valor,2)} kW`}</td><td>${ponta ? 'Ponta' : 'Fora ponta'}</td><td>${valor === null ? 'Sem leitura' : valor === resumo.maior ? 'Maxima' : 'Normal'}</td></tr>`; }).join('')}</tbody></table>`;
   }
   const medicoes = document.getElementById('homeMeasurements');
-  if (medicoes) medicoes.innerHTML = linhas.length ? `<table><thead><tr><th>Data e hora</th><th>V A</th><th>V B</th><th>V C</th><th>I A</th><th>Potencia</th><th>FP</th><th>Status</th></tr></thead><tbody>${resumo.ordenadas.slice(-12).reverse().map(l => `<tr><td>${horaLeitura(l)}</td><td>${num(l.va,1)} V</td><td>${num(l.vb,1)} V</td><td>${num(l.vc,1)} V</td><td>${num(l.ia,2)} A</td><td>${num(Number(l.pt||0)/1000,2)} kW</td><td>${num(l.fpt,2)}</td><td class="measurement-status">${l.leituraMedidorValida === false ? 'Indisponivel' : 'Valida'}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Nenhuma medicao no periodo selecionado.</div>';
+  if (medicoes) medicoes.innerHTML = linhas.length ? `<table><thead><tr><th>Data e hora</th><th>V A</th><th>V B</th><th>V C</th><th>I A</th><th>Potencia</th><th>FP</th><th>Status</th></tr></thead><tbody>${resumo.ordenadas.slice(-12).reverse().map(l => `<tr><td>${horaLeitura(l)}</td><td>${num(l.va,1)} V</td><td>${num(l.vb,1)} V</td><td>${num(l.vc,1)} V</td><td>${num(l.ia,2)} A</td><td>${num(Number(l.pt||0)/1000,2)} kW</td><td>${numFatorPotencia(l.fpt)}</td><td class="measurement-status">${l.leituraMedidorValida === false ? 'Indisponivel' : 'Valida'}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Nenhuma medicao no periodo selecionado.</div>';
   const areas = document.getElementById('homeAreasTable');
   if (areas) areas.innerHTML = `<table><thead><tr><th>Area / equipamento</th><th>Demanda</th><th>Multimedidor</th><th>Ultima atualizacao</th></tr></thead><tbody>${deviceList().map(d => { const id=deviceId(d); return `<tr class="area-row ${id===ensureSelectedDevice()?'selected':''}" onclick="setSelectedDevice('${id.replace(/'/g,"\\'")}')"><td><b>${escapeHtml(deviceName(d))}</b><span class="id-note">${id}</span></td><td>${num(Number(d.pt||0)/1000,2)} kW</td><td>${meterStatusLabel(d)}</td><td>${d.created_at ? horaLeitura(d) : '--'}</td></tr>`; }).join('')}</tbody></table>`;
 }
@@ -2170,7 +2202,7 @@ async function drawHome(){
   const tipo = visualizacaoHome === 'barras' ? 'bar' : 'line';
   makeLine('homeDemand', labels, [
     { label:meta.titulo, data:valores, borderColor:'#23628f', backgroundColor:visualizacaoHome==='area' ? 'rgba(35,98,143,.22)' : 'rgba(35,98,143,.68)', tension:.35, fill:visualizacaoHome==='area', spanGaps:false, borderWidth:2, pointRadius:visualizacaoHome === 'linha' ? 2 : 0, pointHoverRadius:4 }
-  ], meta.unidade, tipo);
+  ], meta.unidade, tipo, { unidade:meta.unidade, precisao:meta.precisao || 1, ...(meta.eixo || {}) });
   preencherWidgetsHome(leiturasHome);
   const status = document.getElementById('homeDemandStatus');
   if (status) status.textContent = leiturasHome.length ? `${leiturasHome.length} leituras utilizadas. Ultima atualizacao: ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}.` : 'Nao ha leituras para o dia selecionado.';
@@ -2195,7 +2227,12 @@ function rowsAsc(rows){
   return rows.slice().sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
 }
 function rowLabels(rows){
-  return rows.map((r, i) => r.created_at ? new Date(r.created_at).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) : String(i + 1));
+  return rows.map((r, i) => {
+    const instante = new Date(r?.created_at);
+    return Number.isNaN(instante.getTime())
+      ? String(i + 1)
+      : instante.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  });
 }
 async function drawMonitor(){
   const metric = document.getElementById('metricSelect')?.value || 'pt';
@@ -2224,7 +2261,13 @@ async function drawMonitor(){
     { label:'Fase A', data: valores.map(item => item.fases[0]), borderColor:'#fbbf24', tension:.35 },
     { label:'Fase B', data: valores.map(item => item.fases[1]), borderColor:'#34d399', tension:.35 },
     { label:'Fase C', data: valores.map(item => item.fases[2]), borderColor:'#f87171', tension:.35 }
-  ], definicao.unidade || definicao.titulo);
+  ], definicao.unidade || definicao.titulo, 'line', {
+    unidade:definicao.unidade,
+    precisao:definicao.precisao || 1,
+    minimoIntervalo:definicao.minimoIntervalo,
+    limiteInferior:definicao.limiteInferior,
+    limiteSuperior:definicao.limiteSuperior
+  });
   const latest = ordered[ordered.length - 1] || currentDevice();
   const valoresAtuais = valoresDaGrandeza(latest, metric);
   const gaugeValues = [valoresAtuais.total, ...valoresAtuais.fases];
@@ -2286,7 +2329,8 @@ async function loadHistory(){
   const ordered = rowsAsc(historyRows);
   const labels = rowLabels(ordered);
   const data = ordered.map(r => Number(r[metric] || r.pt || 0));
-  makeLine('histChart', labels, [{ label: metric.toUpperCase(), data, borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.08)', fill:true, tension:.3 }], metric);
+  const historicoFp = metric === 'fpt';
+  makeLine('histChart', labels, [{ label: metric.toUpperCase(), data, borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.08)', fill:true, tension:.3 }], metric, 'line', historicoFp ? { precisao:2, minimoIntervalo:.02, limiteInferior:0, limiteSuperior:1 } : { minimoIntervalo:.1 });
 }
 async function drawAnalysis(){
   const dev = document.getElementById('anaDevice')?.value || ensureSelectedDevice();
@@ -2302,14 +2346,14 @@ async function drawAnalysis(){
   const avg = values.length ? values.reduce((a,b)=>a+b,0) / values.length : 0;
   const out = document.getElementById('analysisOutput');
   out.className = '';
-  out.innerHTML = `<div class="cards grid-2">${panel(`Curva de consumo - ${deviceName(currentDevice())}`, '<div class="chart-box"><canvas id="analysisChart"></canvas></div>')}${panel('Resumo', `<div class="metric-list"><div class="metric-line"><span>Media</span><b>${num(avg/1000,2)} kW</b></div><div class="metric-line"><span>Pico</span><b>${num((Math.max(...values,0))/1000,2)} kW</b></div><div class="metric-line"><span>Fator de potencia</span><b>${num(totals().fp,2)}</b></div></div>`)}</div>`;
-  makeLine('analysisChart', rowLabels(ordered), [{ label:'Consumo', data:values, borderColor:'#23628f', tension:.35 }], 'W');
+  out.innerHTML = `<div class="cards grid-2">${panel(`Curva de consumo - ${deviceName(currentDevice())}`, '<div class="chart-box"><canvas id="analysisChart"></canvas></div>')}${panel('Resumo', `<div class="metric-list"><div class="metric-line"><span>Media</span><b>${num(avg/1000,2)} kW</b></div><div class="metric-line"><span>Pico</span><b>${num((Math.max(...values,0))/1000,2)} kW</b></div><div class="metric-line"><span>Fator de potencia</span><b>${numFatorPotencia(totals().fp)}</b></div></div>`)}</div>`;
+  makeLine('analysisChart', rowLabels(ordered), [{ label:'Consumo', data:values, borderColor:'#23628f', tension:.35 }], 'W', 'line', { unidade:'W', minimoIntervalo:1 });
 }
 function drawGeneration(){
   const out = document.getElementById('generationOutput');
   out.className = '';
   out.innerHTML = panel('Geracao por periodo', '<div class="chart-box"><canvas id="generationChart"></canvas></div>');
-  makeLine('generationChart', Array.from({length:12}, (_,i)=>`${i+6}h`), [{ label:'Geracao', data:fakeSeries('pt',12).map(v=>v*.42), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', fill:true, tension:.35 }], 'W');
+  makeLine('generationChart', Array.from({length:12}, (_,i)=>`${i+6}h`), [{ label:'Geracao', data:fakeSeries('pt',12).map(v=>v*.42), borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', fill:true, tension:.35 }], 'W', 'line', { unidade:'W', minimoIntervalo:1 });
 }
 function exportCSV(){
   const rows = historyRows.length ? historyRows : devices;

@@ -1606,7 +1606,14 @@ function renderMapaEquipamentos(){
   if (acoesMapa) {
     const seletorEstiloMapa = acoesMapa.querySelector('[data-map-style]');
     acoesMapa.querySelectorAll(':scope > button').forEach(botao => botao.remove());
-    seletorEstiloMapa?.replaceWith(`<div class="map-style-switch" role="group" aria-label="Aparência do mapa"><button class="btn icon ${estiloMapa === 'claro' ? 'active' : ''}" data-map-style-button="claro" onclick="definirEstiloMapa('claro')" title="Mapa claro" aria-label="Mapa claro" aria-pressed="${estiloMapa === 'claro'}">${svg('sun')}</button><button class="btn icon ${estiloMapa === 'escuro' ? 'active' : ''}" data-map-style-button="escuro" onclick="definirEstiloMapa('escuro')" title="Mapa escuro" aria-label="Mapa escuro" aria-pressed="${estiloMapa === 'escuro'}">${svg('moon')}</button><button class="btn icon ${estiloMapa === 'satelite' ? 'active' : ''}" data-map-style-button="satelite" onclick="definirEstiloMapa('satelite')" title="Mapa satélite" aria-label="Mapa satélite" aria-pressed="${estiloMapa === 'satelite'}">${svg('layers')}</button></div>`);
+    if (seletorEstiloMapa) {
+      const seletorModernizado = document.createElement('div');
+      seletorModernizado.className = 'map-style-switch';
+      seletorModernizado.setAttribute('role', 'group');
+      seletorModernizado.setAttribute('aria-label', 'Aparência do mapa');
+      seletorModernizado.innerHTML = `<button class="btn icon ${estiloMapa === 'claro' ? 'active' : ''}" data-map-style-button="claro" onclick="definirEstiloMapa('claro')" title="Mapa claro" aria-label="Mapa claro" aria-pressed="${estiloMapa === 'claro'}">${svg('sun')}</button><button class="btn icon ${estiloMapa === 'escuro' ? 'active' : ''}" data-map-style-button="escuro" onclick="definirEstiloMapa('escuro')" title="Mapa escuro" aria-label="Mapa escuro" aria-pressed="${estiloMapa === 'escuro'}">${svg('moon')}</button><button class="btn icon ${estiloMapa === 'satelite' ? 'active' : ''}" data-map-style-button="satelite" onclick="definirEstiloMapa('satelite')" title="Mapa satélite" aria-label="Mapa satélite" aria-pressed="${estiloMapa === 'satelite'}">${svg('layers')}</button>`;
+      seletorEstiloMapa.replaceWith(seletorModernizado);
+    }
     acoesMapa.insertAdjacentHTML('beforeend', `<button class="btn ghost icon" onclick="carregarDadosMapa()" title="Atualizar dados do mapa" aria-label="Atualizar dados do mapa">${svg('refresh')}</button><button class="btn ghost icon" onclick="exportarMapaCsv()" title="Baixar dados do mapa em CSV" aria-label="Baixar dados do mapa em CSV">${svg('download')}</button><button class="btn ghost icon" id="toggleMapLabels" onclick="alternarNomesMapa()" title="${exibirNomesNoMapa ? 'Ocultar nomes dos marcadores' : 'Mostrar nomes dos marcadores'}" aria-label="${exibirNomesNoMapa ? 'Ocultar nomes dos marcadores' : 'Mostrar nomes dos marcadores'}">${svg(exibirNomesNoMapa ? 'eyeOff' : 'eye')}</button>`);
   }
   const limparMapa = container.querySelector('.map-filters > .btn');

@@ -550,6 +550,15 @@ body.dark .svoltix-map-label span { color:#9fb5ca; }
 .home-kpi { cursor:pointer; transition:transform .16s ease, box-shadow .16s ease; }
 .home-kpi:hover { transform:translateY(-2px); box-shadow:0 8px 18px rgba(16,28,48,.18); }
 .home-chart-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.chart-tools { position:absolute; z-index:5; top:9px; right:10px; display:flex; align-items:center; gap:3px; padding:4px; border:1px solid rgba(148,163,184,.34); border-radius:10px; background:rgba(255,255,255,.88); box-shadow:0 5px 16px rgba(20,48,76,.13); backdrop-filter:blur(8px); opacity:.88; transition:opacity .16s ease,transform .16s ease; }
+.chart-box:hover .chart-tools, .chart-tools:focus-within { opacity:1; transform:translateY(-1px); }
+.chart-tool { width:30px; height:30px; display:grid; place-items:center; border:0; border-radius:7px; background:transparent; color:#23628f; transition:background .16s ease,color .16s ease,transform .16s ease; }
+.chart-tool:hover { background:#e6f3fb; color:#0f527e; transform:translateY(-1px); }
+.chart-tool:focus-visible { outline:0; box-shadow:0 0 0 3px rgba(56,189,248,.26); }
+.chart-tool svg { width:17px; height:17px; }
+body.dark .chart-tools { background:rgba(16,32,53,.9); border-color:#35506f; }
+body.dark .chart-tool { color:#7dd3fc; }
+body.dark .chart-tool:hover { background:#173b59; color:#bdeafe; }
 .chart-fullscreen { position:fixed; inset:20px; z-index:70; background:#fff; padding:16px; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,.35); }
 .chart-fullscreen .chart-box { height:calc(100vh - 130px); }
 .widget-note { color:#607791; font-size:11px; line-height:1.45; }
@@ -1009,6 +1018,13 @@ const icons = {
   gear: '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.06a1.7 1.7 0 0 0-1-.54 1.7 1.7 0 0 0-1.87.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.06a1.7 1.7 0 0 0 .54-1 1.7 1.7 0 0 0-.34-1.87l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.06a1.7 1.7 0 0 0 1 .54 1.7 1.7 0 0 0 1.87-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 9c.22.33.42.66.6 1H20a2 2 0 1 1 0 4h-.06c-.15.36-.33.7-.54 1Z" stroke="currentColor" stroke-width="1.3"/>',
   bell: '<path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7M13.7 21a2 2 0 0 1-3.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   download: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  copy: '<rect x="8" y="8" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  zoomIn: '<circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="M11 8v6M8 11h6M16 16l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  zoomOut: '<circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="M8 11h6M16 16l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  resetZoom: '<path d="M20 11a8 8 0 1 0 1.2 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 5v6h-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  expand: '<path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  arrowLeft: '<path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+  arrowRight: '<path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 10-12h-7l1-8Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 3v4M8 3v4M3 11h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
@@ -1242,6 +1258,56 @@ function toast(msg){
 }
 function destroyChart(id){ if (charts[id]) { charts[id].destroy(); charts[id] = null; } }
 function resizeCharts(){ Object.values(charts).forEach(c => c && c.resize()); }
+function montarControlesGrafico(id){
+  const canvas = document.getElementById(id);
+  const caixa = canvas?.closest('.chart-box');
+  if (!caixa) return;
+  caixa.querySelector(`.chart-tools[data-chart-id="${id}"]`)?.remove();
+  caixa.insertAdjacentHTML('beforeend', `<div class="chart-tools" data-chart-id="${id}" role="toolbar" aria-label="Controles do gráfico">
+    <button class="chart-tool" type="button" onclick="zoomGrafico('${id}','in')" title="Aproximar escala vertical" aria-label="Aproximar escala vertical">${svg('zoomIn')}</button>
+    <button class="chart-tool" type="button" onclick="redefinirZoomGrafico('${id}')" title="Restaurar escala do gráfico" aria-label="Restaurar escala do gráfico">${svg('resetZoom')}</button>
+    <button class="chart-tool" type="button" onclick="zoomGrafico('${id}','out')" title="Afastar escala vertical" aria-label="Afastar escala vertical">${svg('zoomOut')}</button>
+    <button class="chart-tool" type="button" onclick="copiarGrafico('${id}')" title="Copiar gráfico como imagem" aria-label="Copiar gráfico como imagem">${svg('copy')}</button>
+  </div>`);
+}
+function zoomGrafico(id, direcao){
+  const grafico = charts[id];
+  const eixoY = grafico?.options?.scales?.y;
+  if (!grafico || !eixoY || !Number.isFinite(eixoY.min) || !Number.isFinite(eixoY.max)) return;
+  const centro = (eixoY.min + eixoY.max) / 2;
+  const intervalo = Math.max(eixoY.max - eixoY.min, .0001);
+  const fator = direcao === 'in' ? .72 : 1.38;
+  eixoY.min = centro - (intervalo * fator) / 2;
+  eixoY.max = centro + (intervalo * fator) / 2;
+  grafico.update();
+}
+function redefinirZoomGrafico(id){
+  const grafico = charts[id];
+  const eixoBase = grafico?.$svoltixEixoBase;
+  if (!grafico || !eixoBase) return;
+  grafico.options.scales.y.min = eixoBase.min;
+  grafico.options.scales.y.max = eixoBase.max;
+  grafico.update();
+}
+async function copiarGrafico(id){
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  try {
+    const exportacao = document.createElement('canvas');
+    exportacao.width = canvas.width;
+    exportacao.height = canvas.height;
+    const contexto = exportacao.getContext('2d');
+    contexto.fillStyle = document.body.classList.contains('dark') ? '#102035' : '#ffffff';
+    contexto.fillRect(0, 0, exportacao.width, exportacao.height);
+    contexto.drawImage(canvas, 0, 0);
+    const imagem = await new Promise((resolve, reject) => exportacao.toBlob(blob => blob ? resolve(blob) : reject(new Error('imagem')), 'image/png'));
+    if (!navigator.clipboard?.write || !window.ClipboardItem) throw new Error('clipboard');
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': imagem })]);
+    toast('Gráfico copiado para a área de transferência');
+  } catch {
+    toast('Não foi possível copiar o gráfico neste navegador');
+  }
+}
 function calcularFaixaEixoY(datasets, opcoes={}){
   const valores = datasets.flatMap(serie => (serie.data || []).filter(valor => valor !== null && valor !== '').map(Number).filter(Number.isFinite));
   const precisao = opcoes.precisao === 2 ? 2 : 1;
@@ -1278,7 +1344,7 @@ function makeLine(id, labels, datasets, yTitle='', tipo='line', opcoes={}){
   const texto = escuro ? '#b9cce0' : '#445a72';
   const grade = escuro ? '#263e58' : '#e1e9f2';
   const eixo = calcularFaixaEixoY(datasets, { ...opcoes, zeroBase: tipo === 'bar' || opcoes.zeroBase });
-  const unidade = opcoes.unidade || '';
+  const unidade = Object.prototype.hasOwnProperty.call(opcoes, 'unidade') ? opcoes.unidade : '';
   const formatar = valor => eixo.precisao === 2 ? numFatorPotencia(valor) : num(valor);
   charts[id] = new Chart(el, {
     type: tipo,
@@ -1287,13 +1353,15 @@ function makeLine(id, labels, datasets, yTitle='', tipo='line', opcoes={}){
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode:'index', intersect:false },
-      plugins: { legend: { position:'top', align:'end', labels: { color:texto, usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:16, font:{ size:11, weight:'600' } } }, tooltip:{ padding:10, titleFont:{weight:'700'}, bodyFont:{weight:'600'}, callbacks:{ title: contexto => contexto?.[0]?.label || '', label: contexto => `${contexto.dataset.label}: ${formatar(contexto.parsed.y)}${unidade ? ` ${unidade}` : ''}` } } },
+      plugins: { legend: { position:'top', align:'start', labels: { color:texto, usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:16, font:{ size:11, weight:'600' } } }, tooltip:{ padding:10, titleFont:{weight:'700'}, bodyFont:{weight:'600'}, callbacks:{ title: contexto => contexto?.[0]?.label || '', label: contexto => `${contexto.dataset.label}: ${formatar(contexto.parsed.y)}${unidade ? ` ${unidade}` : ''}` } } },
       scales: {
         x: { grid: { color:grade }, ticks:{ color:texto, maxTicksLimit: 9, callback: (_valor, indice) => rotuloTemporalDoEixo(labels, indice) } },
         y: { min:eixo.min, max:eixo.max, title:{ display:!!yTitle, text:yTitle, color:texto }, grid: { color:grade }, ticks:{ color:texto, maxTicksLimit:6, callback: valor => formatar(valor) } }
       }
     }
   });
+  charts[id].$svoltixEixoBase = { min:eixo.min, max:eixo.max };
+  montarControlesGrafico(id);
 }
 function makeGauge(id, value, max=10){
   destroyChart(id);
@@ -1901,7 +1969,7 @@ function renderHome(){
       <div class="home-kpi" onclick="abrirResumoHome('mensal')">${kpi('card','Consumo mensal ate agora',`<span id="homeMonthlyValue">${num(t.monthKwh,0)} kWh</span>`,'Estimativa operacional do periodo')}</div>
       <div class="home-kpi" onclick="abrirResumoHome('previsao')">${kpi('chart','Previsao mensal',`<span id="homeForecastValue">${num(t.forecast,0)} kWh</span>`,'Baseada na media recente')}</div>
     </div>`,
-    grafico: `<div id="homeChartPanel">${panel(`${meta.titulo} - ${brDate(dataDemandaSelecionada)} - ${selectedName}`, '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div><div class="muted" id="homeDemandStatus" style="padding-top:8px"></div>', `<div class="home-chart-actions"><button class="btn icon ghost" onclick="deslocarDataDemanda(-1)" title="Dia anterior">←</button><button class="btn icon ghost" onclick="deslocarDataDemanda(1)" title="Proximo dia">→</button><button class="btn icon ghost" onclick="exportarCsvHome()" title="Exportar CSV">${svg('download')}</button><button class="btn icon ghost" onclick="alternarTelaCheiaGrafico()" title="Tela cheia">↗</button></div>`)}</div>`,
+    grafico: `<div id="homeChartPanel">${panel(`${meta.titulo} - ${brDate(dataDemandaSelecionada)} - ${selectedName}`, '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div><div class="muted" id="homeDemandStatus" style="padding-top:8px"></div>', `<div class="home-chart-actions"><button class="btn icon ghost" onclick="deslocarDataDemanda(-1)" title="Dia anterior" aria-label="Dia anterior">${svg('arrowLeft')}</button><button class="btn icon ghost" onclick="deslocarDataDemanda(1)" title="Próximo dia" aria-label="Próximo dia">${svg('arrowRight')}</button><button class="btn icon ghost" onclick="exportarCsvHome()" title="Exportar leituras em CSV" aria-label="Exportar leituras em CSV">${svg('download')}</button><button class="btn icon ghost" onclick="alternarTelaCheiaGrafico()" title="Ampliar gráfico" aria-label="Ampliar gráfico">${svg('expand')}</button></div>`)}</div>`,
     tabelaDemanda: panel(`Demanda por hora - ${brDate(dataDemandaSelecionada)}`, '<div class="mini-table" id="homeDemandTable"><div class="empty">Carregando leituras do dia...</div></div>'),
     eficiencia: panel('Eficiencia energetica', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b id="effValue" style="color:#23628f;font-size:20px">--</b><p class="widget-note" id="effText">Aguardando dados suficientes para avaliar.</p></div>'),
     metricas: panel('Metricas de consumo', '<div class="metric-list" id="homeMetrics"><div class="metric-line"><span>Carregando metricas...</span><b>--</b></div></div>'),
@@ -2115,7 +2183,7 @@ async function drawHomeLegado(){
   porHora.forEach((amostras, hora) => {
     if (amostras.length) valores[hora] = amostras.reduce((s, valor) => s + valor, 0) / amostras.length;
   });
-  makeLine('homeDemand', labels, [{ label:'Demanda', data:valores, borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.20)', tension:.35, fill:true, spanGaps:false }], 'kW');
+  makeLine('homeDemand', labels, [{ label:'Demanda', data:valores, borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.20)', tension:.35, fill:true, spanGaps:false }], 'kW', 'line', { unidade:'kW', minimoIntervalo:.1 });
   const consumoKwh = linhas.length > 1
     ? linhas.slice(1).reduce((soma, linha, indice) => {
         const anterior = linhas[indice];
@@ -2330,7 +2398,8 @@ async function loadHistory(){
   const labels = rowLabels(ordered);
   const data = ordered.map(r => Number(r[metric] || r.pt || 0));
   const historicoFp = metric === 'fpt';
-  makeLine('histChart', labels, [{ label: metric.toUpperCase(), data, borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.08)', fill:true, tension:.3 }], metric, 'line', historicoFp ? { precisao:2, minimoIntervalo:.02, limiteInferior:0, limiteSuperior:1 } : { minimoIntervalo:.1 });
+  const unidadeHistorico = ({ pt:'W', va:'V', ia:'A', fpt:'' })[metric] ?? '';
+  makeLine('histChart', labels, [{ label: metric.toUpperCase(), data, borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.08)', fill:true, tension:.3 }], unidadeHistorico || metric, 'line', historicoFp ? { unidade:'', precisao:2, minimoIntervalo:.02, limiteInferior:0, limiteSuperior:1 } : { unidade:unidadeHistorico, minimoIntervalo:.1 });
 }
 async function drawAnalysis(){
   const dev = document.getElementById('anaDevice')?.value || ensureSelectedDevice();

@@ -430,6 +430,16 @@ body.dark .dashboard-card-metric { background:#172f49; }
 .map-filter-field .input, .map-filter-field .select { width:100%; }
 .map-summary { padding:9px 14px; color:#637b94; font-size:12px; font-weight:600; border-bottom:1px solid #dfe8f0; }
 .equipment-map { width:100%; height:560px; background:#eaf1f7; }
+.svoltix-map-marker { background:transparent; border:0; }
+.svoltix-map-pin { width:17px; height:17px; margin:0 auto; border:3px solid #fff; border-radius:50% 50% 50% 0; box-shadow:0 2px 8px rgba(9,25,42,.35); transform:rotate(-45deg); }
+.svoltix-map-pin.online { background:#21b889; }
+.svoltix-map-pin.atencao { background:#e5a923; }
+.svoltix-map-pin.offline, .svoltix-map-pin.sem_dados { background:#e26363; }
+.svoltix-map-label { min-width:144px; margin-top:5px; padding:5px 7px; border:1px solid rgba(21,53,79,.22); border-radius:6px; background:rgba(255,255,255,.94); box-shadow:0 2px 7px rgba(17,36,56,.18); color:#193b5e; font:700 11px/1.25 Arial,sans-serif; text-align:center; transform:translateX(-50%); }
+.svoltix-map-label strong, .svoltix-map-label span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.svoltix-map-label span { margin-top:2px; color:#617991; font-size:9px; font-weight:700; }
+body.dark .svoltix-map-label { border-color:#42617f; background:rgba(16,32,53,.94); color:#e3eef8; }
+body.dark .svoltix-map-label span { color:#9fb5ca; }
 .map-empty { min-height:320px; display:grid; place-items:center; padding:30px; text-align:center; color:#69819b; font-weight:600; }
 .map-popup-title { margin-bottom:4px; color:#173a5c; font-weight:800; }
 .map-popup-text { color:#617991; font-size:12px; line-height:1.45; }
@@ -776,6 +786,10 @@ let marcadorEdicaoLocalizacao = null;
 let dadosMapaEquipamentos = [];
 let estiloMapa = localStorage.getItem('svoltix_mapa_estilo') || 'claro';
 let filtrosMapa = { busca:'', cidade:'', estado:'', status:'todos', inicio:'', fim:'' };
+const VISTA_INICIAL_PARAIBA = { latitude:-7.2399, longitude:-36.7819, zoom:7 };
+let vistaMapaEquipamentos = { ...VISTA_INICIAL_PARAIBA };
+let contornoParaiba = null;
+let carregamentoContornoParaiba = null;
 const COMPONENTES_INICIAIS = [
   ['saude','Saude da instalacao','painel'], ['indicadores','Indicadores principais','painel'],
   ['grafico','Grafico de demanda','grafico'], ['tabelaDemanda','Tabela de demanda','tabela'],
@@ -1262,17 +1276,38 @@ function aplicarEstiloMapa(mapa){
   if (mapa._svoltixCamadaBase) mapa.removeLayer(mapa._svoltixCamadaBase);
   mapa._svoltixCamadaBase = camadaBaseMapa().addTo(mapa);
 }
+function estiloContornoParaiba(){
+  return { color:estiloMapa === 'escuro' ? '#63d9ff' : '#0868aa', weight:2.4, opacity:.95, fillColor:estiloMapa === 'satelite' ? '#42b8ef' : '#2788ca', fillOpacity:estiloMapa === 'escuro' ? .10 : .055 };
+}
+async function adicionarContornoParaiba(mapa){
+  if (!mapa || !window.L || !mapa._container) return;
+  if (mapa._svoltixContornoParaiba) { mapa._svoltixContornoParaiba.setStyle(estiloContornoParaiba()); return; }
+  if (!carregamentoContornoParaiba) {
+    carregamentoContornoParaiba = fetch('https://servicodados.ibge.gov.br/api/v3/malhas/estados/25?formato=application/vnd.geo%2Bjson&qualidade=minima')
+      .then(resposta => resposta.ok ? resposta.json() : null)
+      .then(dados => { contornoParaiba = dados; return dados; })
+      .catch(() => null)
+      .finally(() => { carregamentoContornoParaiba = null; });
+  }
+  const dados = contornoParaiba || await carregamentoContornoParaiba;
+  if (!dados || !mapa._container || mapa._svoltixContornoParaiba) return;
+  mapa._svoltixContornoParaiba = L.geoJSON(dados, {interactive:false, style:estiloContornoParaiba}).addTo(mapa);
+}
 function definirEstiloMapa(valor){
   estiloMapa = ['claro','escuro','satelite'].includes(valor) ? valor : 'claro';
   localStorage.setItem('svoltix_mapa_estilo', estiloMapa);
   aplicarEstiloMapa(mapaEdicaoLocalizacao);
   aplicarEstiloMapa(mapaEquipamentos);
+  adicionarContornoParaiba(mapaEdicaoLocalizacao);
+  adicionarContornoParaiba(mapaEquipamentos);
   document.querySelectorAll('[data-map-style]').forEach(campo => { campo.value = estiloMapa; });
 }
 function iniciarMapaEdicao(latitude, longitude){
-  const pontoInicial = coordenadasValidas(latitude, longitude) ? [Number(latitude), Number(longitude)] : [-14.235, -51.9253];
-  mapaEdicaoLocalizacao = L.map('locationPreviewMap').setView(pontoInicial, coordenadasValidas(latitude, longitude) ? 15 : 4);
+  const possuiCoordenadas = coordenadasValidas(latitude, longitude);
+  const pontoInicial = possuiCoordenadas ? [Number(latitude), Number(longitude)] : [VISTA_INICIAL_PARAIBA.latitude, VISTA_INICIAL_PARAIBA.longitude];
+  mapaEdicaoLocalizacao = L.map('locationPreviewMap').setView(pontoInicial, possuiCoordenadas ? 15 : VISTA_INICIAL_PARAIBA.zoom);
   aplicarEstiloMapa(mapaEdicaoLocalizacao);
+  adicionarContornoParaiba(mapaEdicaoLocalizacao);
   mapaEdicaoLocalizacao.on('click', evento => {
     const { lat, lng } = evento.latlng;
     document.getElementById('locationLatitude').value = lat.toFixed(6);
@@ -1334,6 +1369,19 @@ function statusMapa(item){
   return 'offline';
 }
 function statusMapaLabel(status){ return status === 'sem_dados' ? 'Sem telemetria' : statusLabel(status); }
+function statusMedidorMapa(item){
+  const leituraValida = String(item.leitura_medidor_valida ?? '').toLowerCase();
+  const status = String(item.status_medidor ?? '').toLowerCase();
+  if (leituraValida === 'true' || status === 'ok') return 'online';
+  if (leituraValida === 'false' || status === 'indisponivel') return 'offline';
+  return item.ultima_leitura ? 'atencao' : 'sem_dados';
+}
+function statusMedidorMapaLabel(status){
+  if (status === 'online') return 'Multimedidor operante';
+  if (status === 'offline') return 'Multimedidor indisponivel';
+  if (status === 'atencao') return 'Sem diagnostico do multimedidor';
+  return 'Sem telemetria do multimedidor';
+}
 function nomeMapa(item){
   const dispositivo = deviceList().find(d => deviceId(d) === item.dispositivo);
   return dispositivo ? deviceName(dispositivo) : item.dispositivo;
@@ -1403,21 +1451,35 @@ function renderMapaEquipamentos(){
   const container = document.getElementById('view-mapa');
   if (!container) return;
   const pontos = pontosMapaFiltrados();
-  if (mapaEquipamentos) { mapaEquipamentos.remove(); mapaEquipamentos = null; }
+  if (mapaEquipamentos) {
+    const centroAnterior = mapaEquipamentos.getCenter();
+    vistaMapaEquipamentos = { latitude:centroAnterior.lat, longitude:centroAnterior.lng, zoom:mapaEquipamentos.getZoom() };
+    mapaEquipamentos.remove(); mapaEquipamentos = null;
+  }
   const opcoesCidade = cidadesMapa().map(cidade => `<option value="${escapeHtml(cidade)}" ${filtrosMapa.cidade===cidade?'selected':''}>${escapeHtml(cidade)}</option>`).join('');
   const opcoesEstado = estadosMapa().map(estado => `<option value="${escapeHtml(estado)}" ${filtrosMapa.estado===estado?'selected':''}>${escapeHtml(estado)}</option>`).join('');
   container.innerHTML = `${pageTitle('map','Mapa de equipamentos', `<span class="pill">${pontos.length} de ${dadosMapaEquipamentos.length} localizado(s)</span>`)}<section class="map-shell"><div class="map-toolbar"><div><h2>Localização das empresas e equipamentos</h2><p>Visão global, independente do equipamento selecionado no menu lateral.</p></div><div class="map-toolbar-actions"><select class="select" data-map-style onchange="definirEstiloMapa(this.value)"><option value="claro" ${estiloMapa==='claro'?'selected':''}>Mapa claro</option><option value="escuro" ${estiloMapa==='escuro'?'selected':''}>Mapa escuro</option><option value="satelite" ${estiloMapa==='satelite'?'selected':''}>Satélite</option></select><button class="btn ghost" onclick="carregarDadosMapa()">Atualizar</button><button class="btn ghost" onclick="exportarMapaCsv()">Baixar CSV</button></div></div><div class="map-filters"><div class="map-filter-field"><label class="label">Buscar empresa ou equipamento</label><input id="mapSearch" class="input" value="${escapeHtml(filtrosMapa.busca)}" placeholder="Nome, ID ou endereço" oninput="atualizarFiltrosMapa()"></div><div class="map-filter-field"><label class="label">Cidade</label><select id="mapCity" class="select" onchange="atualizarFiltrosMapa()"><option value="">Todas</option>${opcoesCidade}</select></div><div class="map-filter-field"><label class="label">Estado</label><select id="mapState" class="select" onchange="atualizarFiltrosMapa()"><option value="">Todos</option>${opcoesEstado}</select></div><div class="map-filter-field"><label class="label">Comunicação</label><select id="mapStatus" class="select" onchange="atualizarFiltrosMapa()"><option value="todos" ${filtrosMapa.status==='todos'?'selected':''}>Todos</option><option value="online" ${filtrosMapa.status==='online'?'selected':''}>Online</option><option value="atencao" ${filtrosMapa.status==='atencao'?'selected':''}>Atenção</option><option value="offline" ${filtrosMapa.status==='offline'?'selected':''}>Offline</option><option value="sem_dados" ${filtrosMapa.status==='sem_dados'?'selected':''}>Sem telemetria</option></select></div><div class="map-filter-field"><label class="label">Histórico: início</label><input id="mapStart" class="input" type="date" value="${filtrosMapa.inicio}" onchange="atualizarPeriodoMapa()"></div><div class="map-filter-field"><label class="label">Histórico: fim</label><input id="mapEnd" class="input" type="date" value="${filtrosMapa.fim}" onchange="atualizarPeriodoMapa()"></div><button class="btn ghost" onclick="limparFiltrosMapa()">Limpar filtros</button></div><div class="map-summary">${pontos.length} localização(ões) exibida(s). O período histórico considera equipamentos que tiveram leituras entre as datas informadas.</div>${pontos.length ? '<div class="equipment-map" id="equipmentMap"></div>' : '<div class="map-empty">Nenhuma localização corresponde aos filtros informados.</div>'}</section>`;
   if (!pontos.length || !window.L) return;
-  mapaEquipamentos = L.map('equipmentMap').setView([Number(pontos[0].latitude), Number(pontos[0].longitude)], pontos.length === 1 ? 15 : 5);
+  mapaEquipamentos = L.map('equipmentMap').setView([vistaMapaEquipamentos.latitude, vistaMapaEquipamentos.longitude], vistaMapaEquipamentos.zoom);
   aplicarEstiloMapa(mapaEquipamentos);
-  const limites = [];
+  adicionarContornoParaiba(mapaEquipamentos);
+  mapaEquipamentos.on('moveend', () => {
+    const centro = mapaEquipamentos.getCenter();
+    vistaMapaEquipamentos = { latitude:centro.lat, longitude:centro.lng, zoom:mapaEquipamentos.getZoom() };
+  });
   pontos.forEach(item => {
     const latitude = Number(item.latitude); const longitude = Number(item.longitude);
-    limites.push([latitude, longitude]);
-    const situacao = statusMapa(item); const localidade = localidadeMapa(item);
+    const situacao = statusMapa(item);
+    const situacaoMedidor = statusMedidorMapa(item);
+    const localidade = localidadeMapa(item);
+    const nome = nomeMapa(item);
+    const resumo = `ESP: ${statusMapaLabel(situacao)} · ${statusMedidorMapaLabel(situacaoMedidor)}`;
+    const icone = L.divIcon({className:'svoltix-map-marker', iconSize:[210,58], iconAnchor:[18,52], popupAnchor:[84,-44], html:`<div class="svoltix-map-pin ${situacao}"></div><div class="svoltix-map-label"><strong>${escapeHtml(nome)}</strong><span>${escapeHtml(resumo)}</span></div>`});
+    L.marker([latitude, longitude], {icon:icone}).addTo(mapaEquipamentos).bindPopup(`<div class="map-popup-title">${escapeHtml(nome)}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}<br>ESP: ${escapeHtml(statusMapaLabel(situacao))}<br>${escapeHtml(statusMedidorMapaLabel(situacaoMedidor))}${localidade.cidade || localidade.estado ? `<br>${escapeHtml([localidade.cidade,localidade.estado].filter(Boolean).join(' - '))}` : ''}${item.endereco ? `<br>${escapeHtml(item.endereco)}` : ''}<br>Ultima leitura: ${item.ultima_leitura ? dataHoraLeitura({created_at:item.ultima_leitura}) : 'Sem telemetria'}</div>`);
+    return;
+    const situacaoLegado = statusMapa(item); const localidadeLegada = localidadeMapa(item);
     L.marker([latitude, longitude]).addTo(mapaEquipamentos).bindPopup(`<div class="map-popup-title">${escapeHtml(nomeMapa(item))}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}<br>${escapeHtml(statusMapaLabel(situacao))}${localidade.cidade || localidade.estado ? `<br>${escapeHtml([localidade.cidade,localidade.estado].filter(Boolean).join(' - '))}` : ''}${item.endereco ? `<br>${escapeHtml(item.endereco)}` : ''}<br>Última leitura: ${item.ultima_leitura ? dataHoraLeitura({created_at:item.ultima_leitura}) : 'Sem telemetria'}</div>`);
   });
-  if (limites.length > 1) mapaEquipamentos.fitBounds(limites, {padding:[40,40]});
   setTimeout(() => mapaEquipamentos?.invalidateSize(), 80);
 }
 function atualizarFiltrosDashboard(){

@@ -529,9 +529,18 @@ app.get('/api/map-equipment', async (req, res) => {
          GROUP BY ${identificador(dispositivo)}
        )
        SELECT local.dispositivo, local.endereco, local.cidade, local.estado, local.latitude, local.longitude, local.updated_at,
-              historico.primeira_leitura, historico.ultima_leitura, COALESCE(historico.total_leituras, 0) AS total_leituras
+              historico.primeira_leitura, historico.ultima_leitura, COALESCE(historico.total_leituras, 0) AS total_leituras,
+              ultima.payload ->> 'leituraMedidorValida' AS leitura_medidor_valida,
+              ultima.payload ->> 'statusMedidor' AS status_medidor
          FROM public.equipment_locations AS local
          LEFT JOIN historico ON historico.dispositivo = local.dispositivo
+         LEFT JOIN LATERAL (
+           SELECT payload
+             FROM public.telemetria
+            WHERE ${identificador(dispositivo)} = local.dispositivo
+            ORDER BY ${identificador(ordenacao)} DESC
+            LIMIT 1
+         ) AS ultima ON TRUE
         ORDER BY local.estado NULLS LAST, local.cidade NULLS LAST, local.dispositivo`,
       valores
     );

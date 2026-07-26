@@ -79,10 +79,14 @@ async function garantirTabelaLocalizacoes() {
   await pool.query(`CREATE TABLE IF NOT EXISTS public.equipment_locations (
     dispositivo TEXT PRIMARY KEY,
     endereco TEXT,
+    cidade TEXT,
+    estado TEXT,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await pool.query('ALTER TABLE public.equipment_locations ADD COLUMN IF NOT EXISTS cidade TEXT');
+  await pool.query('ALTER TABLE public.equipment_locations ADD COLUMN IF NOT EXISTS estado TEXT');
   tabelaLocalizacoesGarantida = true;
 }
 
@@ -436,7 +440,7 @@ app.post('/api/dashboard-layout/:dispositivo', async (req, res) => {
 app.get('/api/equipment-locations', async (_, res) => {
   try {
     await garantirTabelaLocalizacoes();
-    const result = await pool.query('SELECT dispositivo, endereco, latitude, longitude, updated_at FROM public.equipment_locations ORDER BY dispositivo');
+    const result = await pool.query('SELECT dispositivo, endereco, cidade, estado, latitude, longitude, updated_at FROM public.equipment_locations ORDER BY dispositivo');
     ok(res, { localizacoes: result.rows });
   } catch (e) { fail(res, e); }
 });
@@ -444,7 +448,7 @@ app.get('/api/equipment-locations', async (_, res) => {
 app.get('/api/equipment-locations/:dispositivo', async (req, res) => {
   try {
     await garantirTabelaLocalizacoes();
-    const result = await pool.query('SELECT dispositivo, endereco, latitude, longitude, updated_at FROM public.equipment_locations WHERE dispositivo = $1', [req.params.dispositivo]);
+    const result = await pool.query('SELECT dispositivo, endereco, cidade, estado, latitude, longitude, updated_at FROM public.equipment_locations WHERE dispositivo = $1', [req.params.dispositivo]);
     ok(res, { localizacao: result.rows[0] || null });
   } catch (e) { fail(res, e); }
 });
@@ -454,18 +458,20 @@ app.post('/api/equipment-locations/:dispositivo', async (req, res) => {
   const latitude = Number(req.body?.latitude);
   const longitude = Number(req.body?.longitude);
   const endereco = String(req.body?.endereco || '').trim();
+  const cidade = String(req.body?.cidade || '').trim();
+  const estado = String(req.body?.estado || '').trim();
   if (!dispositivo || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
     return res.status(400).json({ sucesso: false, erro: 'Coordenadas geográficas inválidas.' });
   }
-  if (endereco.length > 500) return res.status(400).json({ sucesso: false, erro: 'Endereço excede o tamanho permitido.' });
+  if (endereco.length > 500 || cidade.length > 120 || estado.length > 120) return res.status(400).json({ sucesso: false, erro: 'Dados de localização excedem o tamanho permitido.' });
   try {
     await garantirTabelaLocalizacoes();
     const result = await pool.query(
-      `INSERT INTO public.equipment_locations (dispositivo, endereco, latitude, longitude, updated_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       ON CONFLICT (dispositivo) DO UPDATE SET endereco = EXCLUDED.endereco, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, updated_at = NOW()
-       RETURNING dispositivo, endereco, latitude, longitude, updated_at`,
-      [dispositivo, endereco || null, latitude, longitude]
+      `INSERT INTO public.equipment_locations (dispositivo, endereco, cidade, estado, latitude, longitude, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       ON CONFLICT (dispositivo) DO UPDATE SET endereco = EXCLUDED.endereco, cidade = EXCLUDED.cidade, estado = EXCLUDED.estado, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, updated_at = NOW()
+       RETURNING dispositivo, endereco, cidade, estado, latitude, longitude, updated_at`,
+      [dispositivo, endereco || null, cidade || null, estado || null, latitude, longitude]
     );
     ok(res, { localizacao: result.rows[0] });
   } catch (e) { fail(res, e); }
@@ -476,13 +482,60 @@ app.get('/api/geocode', async (req, res) => {
   const endereco = String(req.query.endereco || '').trim();
   if (endereco.length < 4 || endereco.length > 500) return res.status(400).json({ sucesso: false, erro: 'Informe um endereço entre 4 e 500 caracteres.' });
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=pt-BR&q=${encodeURIComponent(endereco)}`;
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&accept-language=pt-BR&q=${encodeURIComponent(endereco)}`;
     const resposta = await fetch(url, { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'SVoltix-Pulse/1.0 (mapa de equipamentos)' } });
     if (!resposta.ok) throw new Error('Não foi possível consultar o serviço de geocodificação.');
     const dados = await resposta.json();
     if (!Array.isArray(dados) || !dados.length) return res.status(404).json({ sucesso: false, erro: 'Endereço não localizado. Informe latitude e longitude manualmente.' });
     const local = dados[0];
-    ok(res, { localizacao: { endereco: local.display_name, latitude: Number(local.lat), longitude: Number(local.lon) } });
+    const enderecoDetalhado = local.address || {};
+    ok(res, { localizacao: {
+      endereco: local.display_name,
+      cidade: enderecoDetalhado.city || enderecoDetalhado.town || enderecoDetalhado.village || enderecoDetalhado.municipality || '',
+      estado: enderecoDetalhado.state || '',
+      latitude: Number(local.lat), longitude: Number(local.lon)
+    } });
+  } catch (e) { fail(res, e); }
+});
+
+/* Consolida o histórico de cada equipamento para os filtros do mapa operacional. */
+app.get('/api/map-equipment', async (req, res) => {
+  try {
+    await garantirTabelaLocalizacoes();
+    const colunas = await obterColunasTelemetria();
+    const dispositivo = colunaDispositivo(colunas);
+    const ordenacao = colunaOrdenacao(colunas);
+    const inicio = String(req.query.inicio || '').trim();
+    const fim = String(req.query.fim || '').trim();
+    const condicoes = [];
+    const valores = [];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(inicio)) {
+      valores.push(`${inicio}T00:00:00.000Z`);
+      condicoes.push(`${identificador(ordenacao)} >= $${valores.length}`);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fim)) {
+      valores.push(`${fim}T23:59:59.999Z`);
+      condicoes.push(`${identificador(ordenacao)} <= $${valores.length}`);
+    }
+    const where = condicoes.length ? `WHERE ${condicoes.join(' AND ')}` : '';
+    const result = await pool.query(
+      `WITH historico AS (
+        SELECT ${identificador(dispositivo)} AS dispositivo,
+               MIN(${identificador(ordenacao)}) AS primeira_leitura,
+               MAX(${identificador(ordenacao)}) AS ultima_leitura,
+               COUNT(*)::integer AS total_leituras
+          FROM public.telemetria
+          ${where}
+         GROUP BY ${identificador(dispositivo)}
+       )
+       SELECT local.dispositivo, local.endereco, local.cidade, local.estado, local.latitude, local.longitude, local.updated_at,
+              historico.primeira_leitura, historico.ultima_leitura, COALESCE(historico.total_leituras, 0) AS total_leituras
+         FROM public.equipment_locations AS local
+         LEFT JOIN historico ON historico.dispositivo = local.dispositivo
+        ORDER BY local.estado NULLS LAST, local.cidade NULLS LAST, local.dispositivo`,
+      valores
+    );
+    ok(res, { equipamentos: result.rows });
   } catch (e) { fail(res, e); }
 });
 

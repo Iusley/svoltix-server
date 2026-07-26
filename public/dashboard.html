@@ -423,6 +423,12 @@ body.dark .dashboard-card-metric { background:#172f49; }
 .map-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid #dfe8f0; }
 .map-toolbar h2 { margin:0; color:#173a5c; font-size:17px; }
 .map-toolbar p { margin:3px 0 0; color:#6f859e; font-size:12px; }
+.map-toolbar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.map-filters { display:grid; grid-template-columns:minmax(170px,1.5fr) minmax(120px,1fr) minmax(120px,1fr) minmax(125px,1fr) minmax(135px,1fr) minmax(135px,1fr) auto; gap:8px; padding:12px 14px; border-bottom:1px solid #dfe8f0; background:#f8fbfd; }
+.map-filter-field { min-width:0; }
+.map-filter-field .label { margin-bottom:4px; }
+.map-filter-field .input, .map-filter-field .select { width:100%; }
+.map-summary { padding:9px 14px; color:#637b94; font-size:12px; font-weight:600; border-bottom:1px solid #dfe8f0; }
 .equipment-map { width:100%; height:560px; background:#eaf1f7; }
 .map-empty { min-height:320px; display:grid; place-items:center; padding:30px; text-align:center; color:#69819b; font-weight:600; }
 .map-popup-title { margin-bottom:4px; color:#173a5c; font-weight:800; }
@@ -438,7 +444,8 @@ body.dark .dashboard-card-metric { background:#172f49; }
 .location-help { margin:10px 0; color:#71879e; font-size:12px; line-height:1.45; }
 .location-preview-map { height:290px; margin-top:14px; border:1px solid #d5e2ec; border-radius:8px; overflow:hidden; background:#eaf1f7; }
 .location-modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
-@media (max-width:650px) { .location-address-row, .location-coordinates { grid-template-columns:1fr; } .location-modal { padding:10px; } .equipment-map { height:440px; } }
+@media (max-width:900px) { .map-filters { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width:650px) { .location-address-row, .location-coordinates, .map-filters { grid-template-columns:1fr; } .location-modal { padding:10px; } .equipment-map { height:440px; } .map-toolbar { align-items:flex-start; flex-direction:column; } }
 .power { color: #23628f; font-weight: 800; white-space: nowrap; }
 .power svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 5px; }
 .id-note { display: inline; margin-left: 8px; color: #7890aa; font-size: 11px; }
@@ -766,6 +773,9 @@ let localizacoesPorEquipamento = {};
 let mapaEquipamentos = null;
 let mapaEdicaoLocalizacao = null;
 let marcadorEdicaoLocalizacao = null;
+let dadosMapaEquipamentos = [];
+let estiloMapa = localStorage.getItem('svoltix_mapa_estilo') || 'claro';
+let filtrosMapa = { busca:'', cidade:'', estado:'', status:'todos', inicio:'', fim:'' };
 const COMPONENTES_INICIAIS = [
   ['saude','Saude da instalacao','painel'], ['indicadores','Indicadores principais','painel'],
   ['grafico','Grafico de demanda','grafico'], ['tabelaDemanda','Tabela de demanda','tabela'],
@@ -1112,7 +1122,7 @@ function go(id){
   document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
   document.getElementById(`view-${id}`).classList.add('active');
   document.getElementById(`tab-${id}`).classList.add('active');
-  if (id === 'mapa') renderMapaEquipamentos();
+  if (id === 'mapa') carregarDadosMapa();
   closeSidebar();
   setTimeout(() => resizeCharts(), 80);
 }
@@ -1238,10 +1248,31 @@ function atualizarPreviaLocalizacao(){
   const longitude = document.getElementById('locationLongitude')?.value;
   atualizarMarcadorEdicao(latitude, longitude);
 }
+function camadaBaseMapa(){
+  const estilos = {
+    claro: { url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', opcoes:{maxZoom:19, attribution:'&copy; OpenStreetMap'} },
+    escuro: { url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', opcoes:{maxZoom:20, attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd'} },
+    satelite: { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', opcoes:{maxZoom:19, attribution:'Tiles &copy; Esri'} }
+  };
+  const configuracao = estilos[estiloMapa] || estilos.claro;
+  return L.tileLayer(configuracao.url, configuracao.opcoes);
+}
+function aplicarEstiloMapa(mapa){
+  if (!mapa || !window.L) return;
+  if (mapa._svoltixCamadaBase) mapa.removeLayer(mapa._svoltixCamadaBase);
+  mapa._svoltixCamadaBase = camadaBaseMapa().addTo(mapa);
+}
+function definirEstiloMapa(valor){
+  estiloMapa = ['claro','escuro','satelite'].includes(valor) ? valor : 'claro';
+  localStorage.setItem('svoltix_mapa_estilo', estiloMapa);
+  aplicarEstiloMapa(mapaEdicaoLocalizacao);
+  aplicarEstiloMapa(mapaEquipamentos);
+  document.querySelectorAll('[data-map-style]').forEach(campo => { campo.value = estiloMapa; });
+}
 function iniciarMapaEdicao(latitude, longitude){
   const pontoInicial = coordenadasValidas(latitude, longitude) ? [Number(latitude), Number(longitude)] : [-14.235, -51.9253];
   mapaEdicaoLocalizacao = L.map('locationPreviewMap').setView(pontoInicial, coordenadasValidas(latitude, longitude) ? 15 : 4);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(mapaEdicaoLocalizacao);
+  aplicarEstiloMapa(mapaEdicaoLocalizacao);
   mapaEdicaoLocalizacao.on('click', evento => {
     const { lat, lng } = evento.latlng;
     document.getElementById('locationLatitude').value = lat.toFixed(6);
@@ -1256,7 +1287,7 @@ function abrirModalLocalizacao(dispositivo){
   const equipamento = deviceList().find(d => deviceId(d) === dispositivo);
   const nome = equipamento ? deviceName(equipamento) : dispositivo;
   fecharModalLocalizacao();
-  document.body.insertAdjacentHTML('beforeend', `<div class="location-modal" id="locationModal" onclick="if(event.target===this)fecharModalLocalizacao()"><section class="location-modal-card" role="dialog" aria-modal="true" aria-label="Definir local no mapa"><header class="location-modal-head"><div><h2>Definir local no mapa</h2><div class="muted">${escapeHtml(nome)} · ${escapeHtml(dispositivo)}</div></div><button class="btn icon ghost" onclick="fecharModalLocalizacao()" aria-label="Fechar">×</button></header><div class="location-modal-body"><div class="location-form"><label class="label">Endereço da instalação</label><div class="location-address-row"><input id="locationAddress" class="input" value="${escapeHtml(existente.endereco || '')}" placeholder="Rua, número, cidade, estado"><button class="btn ghost" onclick="localizarEndereco()">Localizar endereço</button></div><p class="location-help">Ou informe as coordenadas abaixo. Você também pode clicar no mapa ou arrastar o marcador para ajustar a posição.</p><div class="location-coordinates"><div class="field"><label class="label">Latitude</label><input id="locationLatitude" class="input" type="number" step="any" value="${existente.latitude ?? ''}" placeholder="Ex.: -3.717220" oninput="atualizarPreviaLocalizacao()"></div><div class="field"><label class="label">Longitude</label><input id="locationLongitude" class="input" type="number" step="any" value="${existente.longitude ?? ''}" placeholder="Ex.: -38.543370" oninput="atualizarPreviaLocalizacao()"></div></div><div id="locationPreviewMap" class="location-preview-map"></div></div><div class="location-modal-actions"><button class="btn ghost" onclick="fecharModalLocalizacao()">Cancelar</button><button class="btn" onclick="salvarLocalizacao('${dispositivo.replace(/'/g, "\\'")}')">Salvar localização</button></div></div></section></div>`);
+  document.body.insertAdjacentHTML('beforeend', `<div class="location-modal" id="locationModal" onclick="if(event.target===this)fecharModalLocalizacao()"><section class="location-modal-card" role="dialog" aria-modal="true" aria-label="Definir local no mapa"><header class="location-modal-head"><div><h2>Definir local no mapa</h2><div class="muted">${escapeHtml(nome)} · ${escapeHtml(dispositivo)}</div></div><button class="btn icon ghost" onclick="fecharModalLocalizacao()" aria-label="Fechar">×</button></header><div class="location-modal-body"><div class="location-form"><label class="label">Endereço da instalação</label><div class="location-address-row"><input id="locationAddress" class="input" value="${escapeHtml(existente.endereco || '')}" placeholder="Rua, número, cidade, estado"><button class="btn ghost" onclick="localizarEndereco()">Localizar endereço</button></div><div class="location-coordinates"><div class="field"><label class="label">Cidade</label><input id="locationCity" class="input" value="${escapeHtml(existente.cidade || '')}" placeholder="Cidade"></div><div class="field"><label class="label">Estado</label><input id="locationState" class="input" value="${escapeHtml(existente.estado || '')}" placeholder="Estado"></div></div><p class="location-help">Ou informe as coordenadas abaixo. Você também pode clicar no mapa ou arrastar o marcador para ajustar a posição.</p><div class="location-coordinates"><div class="field"><label class="label">Latitude</label><input id="locationLatitude" class="input" type="number" step="any" value="${existente.latitude ?? ''}" placeholder="Ex.: -3.717220" oninput="atualizarPreviaLocalizacao()"></div><div class="field"><label class="label">Longitude</label><input id="locationLongitude" class="input" type="number" step="any" value="${existente.longitude ?? ''}" placeholder="Ex.: -38.543370" oninput="atualizarPreviaLocalizacao()"></div></div><div class="field" style="max-width:220px;margin-top:12px"><label class="label">Aparência do mapa</label><select class="select" data-map-style onchange="definirEstiloMapa(this.value)"><option value="claro" ${estiloMapa==='claro'?'selected':''}>Claro</option><option value="escuro" ${estiloMapa==='escuro'?'selected':''}>Escuro</option><option value="satelite" ${estiloMapa==='satelite'?'selected':''}>Satélite</option></select></div><div id="locationPreviewMap" class="location-preview-map"></div></div><div class="location-modal-actions"><button class="btn ghost" onclick="fecharModalLocalizacao()">Cancelar</button><button class="btn" onclick="salvarLocalizacao('${dispositivo.replace(/'/g, "\\'")}')">Salvar localização</button></div></div></section></div>`);
   if (!window.L) { toast('Mapa indisponível. Verifique a conexão com a internet.'); return; }
   setTimeout(() => iniciarMapaEdicao(existente.latitude, existente.longitude), 0);
 }
@@ -1269,6 +1300,8 @@ async function localizarEndereco(){
     const dados = await resposta.json();
     if (!resposta.ok || !dados?.sucesso) throw new Error(dados?.erro || 'Endereço não localizado.');
     entrada.value = dados.localizacao.endereco || endereco;
+    document.getElementById('locationCity').value = dados.localizacao.cidade || '';
+    document.getElementById('locationState').value = dados.localizacao.estado || '';
     document.getElementById('locationLatitude').value = Number(dados.localizacao.latitude).toFixed(6);
     document.getElementById('locationLongitude').value = Number(dados.localizacao.longitude).toFixed(6);
     atualizarMarcadorEdicao(dados.localizacao.latitude, dados.localizacao.longitude, true);
@@ -1277,11 +1310,13 @@ async function localizarEndereco(){
 }
 async function salvarLocalizacao(dispositivo){
   const endereco = document.getElementById('locationAddress')?.value.trim() || '';
+  const cidade = document.getElementById('locationCity')?.value.trim() || '';
+  const estado = document.getElementById('locationState')?.value.trim() || '';
   const latitude = Number(document.getElementById('locationLatitude')?.value);
   const longitude = Number(document.getElementById('locationLongitude')?.value);
   if (!coordenadasValidas(latitude, longitude)) return toast('Informe latitude e longitude válidas.');
   try {
-    const resposta = await fetch(`${API}/api/equipment-locations/${encodeURIComponent(dispositivo)}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endereco, latitude, longitude}) });
+    const resposta = await fetch(`${API}/api/equipment-locations/${encodeURIComponent(dispositivo)}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endereco, cidade, estado, latitude, longitude}) });
     const dados = await resposta.json();
     if (!resposta.ok || !dados?.sucesso) throw new Error(dados?.erro || 'Não foi possível salvar a localização.');
     localizacoesPorEquipamento[dispositivo] = dados.localizacao;
@@ -1290,20 +1325,89 @@ async function salvarLocalizacao(dispositivo){
     toast('Localização salva para este equipamento.');
   } catch (erro) { toast(erro.message || 'Não foi possível salvar a localização.'); }
 }
+function statusMapa(item){
+  const instante = new Date(item.ultima_leitura);
+  if (Number.isNaN(instante.getTime())) return 'sem_dados';
+  const idade = (Date.now() - instante.getTime()) / 1000;
+  if (idade < 35) return 'online';
+  if (idade < 90) return 'atencao';
+  return 'offline';
+}
+function statusMapaLabel(status){ return status === 'sem_dados' ? 'Sem telemetria' : statusLabel(status); }
+function nomeMapa(item){
+  const dispositivo = deviceList().find(d => deviceId(d) === item.dispositivo);
+  return dispositivo ? deviceName(dispositivo) : item.dispositivo;
+}
+function cidadesMapa(){ return [...new Set(dadosMapaEquipamentos.map(item => item.cidade).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR')); }
+function estadosMapa(){ return [...new Set(dadosMapaEquipamentos.map(item => item.estado).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR')); }
+function pontosMapaFiltrados(){
+  const busca = filtrosMapa.busca.toLowerCase();
+  return dadosMapaEquipamentos.filter(item => {
+    const texto = `${nomeMapa(item)} ${item.dispositivo} ${item.endereco || ''} ${item.cidade || ''} ${item.estado || ''}`.toLowerCase();
+    const noPeriodo = !(filtrosMapa.inicio || filtrosMapa.fim) || Number(item.total_leituras || 0) > 0;
+    return coordenadasValidas(item.latitude, item.longitude) && noPeriodo
+      && (!busca || texto.includes(busca))
+      && (!filtrosMapa.cidade || item.cidade === filtrosMapa.cidade)
+      && (!filtrosMapa.estado || item.estado === filtrosMapa.estado)
+      && (filtrosMapa.status === 'todos' || statusMapa(item) === filtrosMapa.status);
+  });
+}
+async function carregarDadosMapa(){
+  const destino = document.getElementById('view-mapa');
+  if (destino && !dadosMapaEquipamentos.length) destino.innerHTML = `${pageTitle('map','Mapa de equipamentos')}<div class="map-empty">Carregando equipamentos e localizações...</div>`;
+  try {
+    const parametros = new URLSearchParams();
+    if (filtrosMapa.inicio) parametros.set('inicio', filtrosMapa.inicio);
+    if (filtrosMapa.fim) parametros.set('fim', filtrosMapa.fim);
+    const resposta = await fetch(`${API}/api/map-equipment?${parametros.toString()}`);
+    const dados = await resposta.json();
+    if (!resposta.ok || !dados?.sucesso) throw new Error(dados?.erro || 'Não foi possível carregar o mapa.');
+    dadosMapaEquipamentos = dados.equipamentos || [];
+    renderMapaEquipamentos();
+  } catch (erro) {
+    if (destino) destino.innerHTML = `${pageTitle('map','Mapa de equipamentos')}<div class="map-empty">${escapeHtml(erro.message || 'Não foi possível carregar os dados do mapa.')}</div>`;
+  }
+}
+function atualizarFiltrosMapa(){
+  filtrosMapa.busca = document.getElementById('mapSearch')?.value.trim() || '';
+  filtrosMapa.cidade = document.getElementById('mapCity')?.value || '';
+  filtrosMapa.estado = document.getElementById('mapState')?.value || '';
+  filtrosMapa.status = document.getElementById('mapStatus')?.value || 'todos';
+  renderMapaEquipamentos();
+}
+function atualizarPeriodoMapa(){
+  filtrosMapa.inicio = document.getElementById('mapStart')?.value || '';
+  filtrosMapa.fim = document.getElementById('mapEnd')?.value || '';
+  carregarDadosMapa();
+}
+function limparFiltrosMapa(){
+  filtrosMapa = { busca:'', cidade:'', estado:'', status:'todos', inicio:'', fim:'' };
+  carregarDadosMapa();
+}
+function exportarMapaCsv(){
+  const pontos = pontosMapaFiltrados();
+  const cabecalho = 'equipamento;id;status;cidade;estado;endereco;latitude;longitude;primeira_leitura;ultima_leitura;leituras_no_periodo';
+  const linhas = pontos.map(item => [nomeMapa(item), item.dispositivo, statusMapaLabel(statusMapa(item)), item.cidade || '', item.estado || '', item.endereco || '', item.latitude, item.longitude, item.primeira_leitura || '', item.ultima_leitura || '', item.total_leituras || 0].map(valor => `"${String(valor).replace(/"/g,'""')}"`).join(';'));
+  const blob = new Blob([[cabecalho, ...linhas].join('\n')], {type:'text/csv;charset=utf-8'});
+  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `svoltix-mapa-equipamentos-${today()}.csv`; link.click(); URL.revokeObjectURL(link.href);
+}
 function renderMapaEquipamentos(){
   const container = document.getElementById('view-mapa');
   if (!container) return;
-  const pontos = deviceList().filter(d => statusOf(d) === 'online').map(d => ({ dispositivo:deviceId(d), nome:deviceName(d), localizacao:localizacoesPorEquipamento[deviceId(d)] })).filter(item => item.localizacao && coordenadasValidas(item.localizacao.latitude, item.localizacao.longitude));
+  const pontos = pontosMapaFiltrados();
   if (mapaEquipamentos) { mapaEquipamentos.remove(); mapaEquipamentos = null; }
-  container.innerHTML = `${pageTitle('map','Mapa de equipamentos', `<span class="pill">${pontos.length} online com localização</span>`)}<section class="map-shell"><div class="map-toolbar"><div><h2>Equipamentos online</h2><p>Exibe somente equipamentos com telemetria recente e localização cadastrada.</p></div><button class="btn ghost" onclick="carregarLocalizacoes().then(renderMapaEquipamentos)">Atualizar mapa</button></div>${pontos.length ? '<div class="equipment-map" id="equipmentMap"></div>' : '<div class="map-empty">Nenhum equipamento online possui localização cadastrada.<br>Defina o local em Meus Dashboards para exibi-lo aqui.</div>'}</section>`;
+  const opcoesCidade = cidadesMapa().map(cidade => `<option value="${escapeHtml(cidade)}" ${filtrosMapa.cidade===cidade?'selected':''}>${escapeHtml(cidade)}</option>`).join('');
+  const opcoesEstado = estadosMapa().map(estado => `<option value="${escapeHtml(estado)}" ${filtrosMapa.estado===estado?'selected':''}>${escapeHtml(estado)}</option>`).join('');
+  container.innerHTML = `${pageTitle('map','Mapa de equipamentos', `<span class="pill">${pontos.length} de ${dadosMapaEquipamentos.length} localizado(s)</span>`)}<section class="map-shell"><div class="map-toolbar"><div><h2>Localização das empresas e equipamentos</h2><p>Visão global, independente do equipamento selecionado no menu lateral.</p></div><div class="map-toolbar-actions"><select class="select" data-map-style onchange="definirEstiloMapa(this.value)"><option value="claro" ${estiloMapa==='claro'?'selected':''}>Mapa claro</option><option value="escuro" ${estiloMapa==='escuro'?'selected':''}>Mapa escuro</option><option value="satelite" ${estiloMapa==='satelite'?'selected':''}>Satélite</option></select><button class="btn ghost" onclick="carregarDadosMapa()">Atualizar</button><button class="btn ghost" onclick="exportarMapaCsv()">Baixar CSV</button></div></div><div class="map-filters"><div class="map-filter-field"><label class="label">Buscar empresa ou equipamento</label><input id="mapSearch" class="input" value="${escapeHtml(filtrosMapa.busca)}" placeholder="Nome, ID ou endereço" oninput="atualizarFiltrosMapa()"></div><div class="map-filter-field"><label class="label">Cidade</label><select id="mapCity" class="select" onchange="atualizarFiltrosMapa()"><option value="">Todas</option>${opcoesCidade}</select></div><div class="map-filter-field"><label class="label">Estado</label><select id="mapState" class="select" onchange="atualizarFiltrosMapa()"><option value="">Todos</option>${opcoesEstado}</select></div><div class="map-filter-field"><label class="label">Comunicação</label><select id="mapStatus" class="select" onchange="atualizarFiltrosMapa()"><option value="todos" ${filtrosMapa.status==='todos'?'selected':''}>Todos</option><option value="online" ${filtrosMapa.status==='online'?'selected':''}>Online</option><option value="atencao" ${filtrosMapa.status==='atencao'?'selected':''}>Atenção</option><option value="offline" ${filtrosMapa.status==='offline'?'selected':''}>Offline</option><option value="sem_dados" ${filtrosMapa.status==='sem_dados'?'selected':''}>Sem telemetria</option></select></div><div class="map-filter-field"><label class="label">Histórico: início</label><input id="mapStart" class="input" type="date" value="${filtrosMapa.inicio}" onchange="atualizarPeriodoMapa()"></div><div class="map-filter-field"><label class="label">Histórico: fim</label><input id="mapEnd" class="input" type="date" value="${filtrosMapa.fim}" onchange="atualizarPeriodoMapa()"></div><button class="btn ghost" onclick="limparFiltrosMapa()">Limpar filtros</button></div><div class="map-summary">${pontos.length} localização(ões) exibida(s). O período histórico considera equipamentos que tiveram leituras entre as datas informadas.</div>${pontos.length ? '<div class="equipment-map" id="equipmentMap"></div>' : '<div class="map-empty">Nenhuma localização corresponde aos filtros informados.</div>'}</section>`;
   if (!pontos.length || !window.L) return;
-  mapaEquipamentos = L.map('equipmentMap').setView([Number(pontos[0].localizacao.latitude), Number(pontos[0].localizacao.longitude)], pontos.length === 1 ? 15 : 5);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(mapaEquipamentos);
+  mapaEquipamentos = L.map('equipmentMap').setView([Number(pontos[0].latitude), Number(pontos[0].longitude)], pontos.length === 1 ? 15 : 5);
+  aplicarEstiloMapa(mapaEquipamentos);
   const limites = [];
   pontos.forEach(item => {
-    const latitude = Number(item.localizacao.latitude); const longitude = Number(item.localizacao.longitude);
+    const latitude = Number(item.latitude); const longitude = Number(item.longitude);
     limites.push([latitude, longitude]);
-    L.marker([latitude, longitude]).addTo(mapaEquipamentos).bindPopup(`<div class="map-popup-title">${escapeHtml(item.nome)}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}${item.localizacao.endereco ? `<br>${escapeHtml(item.localizacao.endereco)}` : ''}</div>`);
+    const situacao = statusMapa(item);
+    L.marker([latitude, longitude]).addTo(mapaEquipamentos).bindPopup(`<div class="map-popup-title">${escapeHtml(nomeMapa(item))}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}<br>${escapeHtml(statusMapaLabel(situacao))}${item.cidade || item.estado ? `<br>${escapeHtml([item.cidade,item.estado].filter(Boolean).join(' - '))}` : ''}${item.endereco ? `<br>${escapeHtml(item.endereco)}` : ''}<br>Última leitura: ${item.ultima_leitura ? dataHoraLeitura({created_at:item.ultima_leitura}) : 'Sem telemetria'}</div>`);
   });
   if (limites.length > 1) mapaEquipamentos.fitBounds(limites, {padding:[40,40]});
   setTimeout(() => mapaEquipamentos?.invalidateSize(), 80);

@@ -26,7 +26,7 @@
   --warning: #fbbf24;
   --danger: #f87171;
   --orange: #fb6a3d;
-  --sidebar-w: 188px;
+  --sidebar-w: 244px;
   --topbar-h: 48px;
   --radius: 8px;
 }
@@ -101,6 +101,23 @@ button { cursor: pointer; }
   padding: 10px 14px;
   border-bottom: 1px solid rgba(255,255,255,.08);
 }
+.area-controls { display:flex; align-items:stretch; gap:8px; }
+.area-controls .compact-device-control { flex:1 1 auto; min-width:0; }
+.area-dashboard {
+  width:40px;
+  flex:0 0 40px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(94,234,212,.38);
+  border-radius:var(--radius);
+  background:rgba(94,234,212,.1);
+  color:var(--accent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  transition:background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.area-dashboard:hover { background:rgba(94,234,212,.2); border-color:var(--accent); transform:translateY(-1px); }
+.area-dashboard:focus-visible { outline:0; box-shadow:0 0 0 3px rgba(94,234,212,.22); }
+.area-dashboard svg { width:18px; height:18px; }
 .area-label { display:block; margin:0 0 6px; color:#8ba1c2; font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .area-select {
   width: 100%;
@@ -120,12 +137,14 @@ button { cursor: pointer; }
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 36px;
+  gap: 12px;
+  height: 42px;
   padding: 0 14px;
   color: var(--text);
   border-left: 3px solid transparent;
   opacity: .88;
+  font-size:14px;
+  font-weight:600;
 }
 .nav-item:hover { background: rgba(94,234,212,.08); opacity: 1; }
 .nav-item.active {
@@ -170,9 +189,11 @@ button { cursor: pointer; }
 body.sidebar-collapsed .sidebar { width:64px; }
 body.sidebar-collapsed .main { margin-left:64px; width:calc(100% - 64px); }
 body.sidebar-collapsed .brand { padding:14px 12px; justify-content:center; }
-body.sidebar-collapsed .brand-copy, body.sidebar-collapsed .area-switch, body.sidebar-collapsed .sidebar-footer, body.sidebar-collapsed .nav-item span, body.sidebar-collapsed .nav-badge { display:none; }
+body.sidebar-collapsed .brand-copy, body.sidebar-collapsed .sidebar-footer, body.sidebar-collapsed .nav-item span, body.sidebar-collapsed .nav-badge { display:none; }
 body.sidebar-collapsed .area-switch { display:block; padding:10px 12px; }
 body.sidebar-collapsed .area-label { display:none; }
+body.sidebar-collapsed .area-controls { display:block; }
+body.sidebar-collapsed .area-dashboard { display:none; }
 body.sidebar-collapsed .compact-device-control { width:40px; height:38px; }
 body.sidebar-collapsed .compact-device-visual { width:40px; height:38px; display:flex; align-items:center; justify-content:center; gap:1px; border:1px solid rgba(94,234,212,.4); border-radius:8px; background:#173b5d; color:#8eeedd; box-shadow:inset 0 1px 0 rgba(255,255,255,.05); pointer-events:none; }
 body.sidebar-collapsed .compact-device-visual svg { width:17px; height:17px; }
@@ -182,7 +203,7 @@ body.sidebar-collapsed .compact-device-control:focus-within .compact-device-visu
 body.sidebar-collapsed .sidebar-collapse { position:absolute; right:-12px; top:16px; background:var(--panel-2); border:1px solid var(--panel-border); box-shadow:0 4px 12px rgba(0,0,0,.18); }
 body.sidebar-collapsed .sidebar-collapse svg { transform:rotate(180deg); }
 body.sidebar-collapsed .nav { padding-top:12px; }
-body.sidebar-collapsed .nav-item { justify-content:center; height:42px; padding:0; border-left:0; border-right:3px solid transparent; }
+body.sidebar-collapsed .nav-item { justify-content:center; height:44px; padding:0; border-left:0; border-right:3px solid transparent; }
 body.sidebar-collapsed .nav-item.active { border-left-color:transparent; border-right-color:var(--accent); }
 body.sidebar-collapsed .nav-item svg { width:18px; height:18px; }
 .topbar {
@@ -771,7 +792,7 @@ body.dark .toggle-field span { color:#c5d8e8; }
       <div class="brand-copy"><div class="brand-name">SVoltix</div></div>
       <button class="sidebar-collapse" onclick="alternarMenuCompacto()" title="Recolher menu" aria-label="Recolher menu"><svg viewBox="0 0 24 24" fill="none"><path d="m14 6-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
-    <div class="area-switch"><span class="area-label">Empresa / equipamento</span><div class="compact-device-control"><span class="compact-device-visual" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="12" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 8h6M8 13h6M8 18h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="18" r="1" fill="currentColor"/></svg><svg class="device-chevron" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><select class="area-select" id="areaSelect" onchange="setSelectedDevice(this.value)"><option>Carregando...</option></select></div></div>
+    <div class="area-switch"><span class="area-label">Empresa / equipamento</span><div class="area-controls"><div class="compact-device-control"><span class="compact-device-visual" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="12" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 8h6M8 13h6M8 18h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="18" r="1" fill="currentColor"/></svg><svg class="device-chevron" viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><select class="area-select" id="areaSelect" onchange="setSelectedDevice(this.value)"><option>Carregando...</option></select></div><button class="area-dashboard" type="button" onclick="go('dashboards')" title="Abrir meus dashboards" aria-label="Abrir meus dashboards"><svg viewBox="0 0 24 24" fill="none"><path d="M5 5h6v6H5V5Zm8 0h6v10h-6V5ZM5 13h6v6H5v-6Zm8 4h6v2h-6v-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button></div></div>
     <nav class="nav" id="nav"></nav>
     <div class="sidebar-footer">
       <div class="avatar">S</div>
@@ -788,9 +809,9 @@ body.dark .toggle-field span { color:#c5d8e8; }
     </header>
 
     <section class="content">
-      <div class="view active" id="view-dashboards"></div>
+      <div class="view" id="view-dashboards"></div>
       <div class="view" id="view-mapa"></div>
-      <div class="view" id="view-home"></div>
+      <div class="view active" id="view-home"></div>
       <div class="view" id="view-monitoramento"></div>
       <div class="view" id="view-historico"></div>
       <div class="view" id="view-analise"></div>
@@ -1006,8 +1027,6 @@ const icons = {
   clear: '<path d="m7 16 8-8 3 3-8 8H7v-3ZM13 5l2-2 5 5-2 2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 21h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
 };
 const navItems = [
-  ['dashboards','Meus Dashboards','chart'],
-  ['mapa','Mapa','map'],
   ['home','Home','home'],
   ['monitoramento','Monitoramento','clock'],
   ['historico','Historico','chart'],
@@ -1017,11 +1036,12 @@ const navItems = [
   ['relatorios','Relatorios','file'],
   ['alertas','Alertas','bell','90'],
   ['downloads','Downloads','download'],
+  ['mapa','Mapa','map'],
   ['config','Configuracoes','gear']
 ];
 function svg(name){ return `<svg viewBox="0 0 24 24" fill="none">${icons[name]}</svg>`; }
 function money(v){ return Number(v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
-function num(v, d=0){ return Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits:d, minimumFractionDigits:d }); }
+function num(v){ return Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits:1, minimumFractionDigits:1 }); }
 function kwhFromW(w, hours=24){ return Math.max(0, Number(w || 0) * hours / 1000); }
 function today(){ return new Date().toISOString().slice(0,10); }
 function brDate(date=today()){ const [y,m,d] = date.slice(0,10).split('-'); return `${d}/${m}/${y}`; }
@@ -1191,7 +1211,7 @@ function panel(title, body, extra=''){
 }
 function renderNav(){
   document.getElementById('nav').innerHTML = navItems.map(([id,label,icon,badge]) => `
-    <div class="nav-item ${id==='dashboards'?'active':''}" id="tab-${id}" onclick="go('${id}')" title="${label}">
+    <div class="nav-item ${id==='home'?'active':''}" id="tab-${id}" onclick="go('${id}')" title="${label}">
       ${svg(icon)}<span>${label}</span>${badge ? `<span class="nav-badge">${badge}</span>` : ''}
     </div>`).join('');
 }
@@ -1199,7 +1219,8 @@ function go(id){
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
   document.getElementById(`view-${id}`).classList.add('active');
-  document.getElementById(`tab-${id}`).classList.add('active');
+  const itemNavegacao = document.getElementById(`tab-${id}`);
+  if (itemNavegacao) itemNavegacao.classList.add('active');
   if (id === 'mapa') carregarDadosMapa();
   closeSidebar();
   setTimeout(() => resizeCharts(), 80);
@@ -1234,10 +1255,10 @@ function makeLine(id, labels, datasets, yTitle='', tipo='line'){
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode:'index', intersect:false },
-      plugins: { legend: { position:'top', align:'end', labels: { color:texto, usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:16, font:{ size:11, weight:'600' } } }, tooltip:{ padding:10, titleFont:{weight:'700'}, bodyFont:{weight:'600'} } },
+      plugins: { legend: { position:'top', align:'end', labels: { color:texto, usePointStyle:true, pointStyle:'circle', boxWidth:7, boxHeight:7, padding:16, font:{ size:11, weight:'600' } } }, tooltip:{ padding:10, titleFont:{weight:'700'}, bodyFont:{weight:'600'}, callbacks:{ label: contexto => `${contexto.dataset.label}: ${num(contexto.parsed.y)}` } } },
       scales: {
         x: { grid: { color:grade }, ticks:{ color:texto, maxTicksLimit: 9 } },
-        y: { beginAtZero:true, title:{ display:!!yTitle, text:yTitle, color:texto }, grid: { color:grade }, ticks:{ color:texto } }
+        y: { beginAtZero:true, title:{ display:!!yTitle, text:yTitle, color:texto }, grid: { color:grade }, ticks:{ color:texto, callback: valor => num(valor) } }
       }
     }
   });

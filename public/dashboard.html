@@ -1338,17 +1338,25 @@ function nomeMapa(item){
   const dispositivo = deviceList().find(d => deviceId(d) === item.dispositivo);
   return dispositivo ? deviceName(dispositivo) : item.dispositivo;
 }
-function cidadesMapa(){ return [...new Set(dadosMapaEquipamentos.map(item => item.cidade).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR')); }
-function estadosMapa(){ return [...new Set(dadosMapaEquipamentos.map(item => item.estado).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR')); }
+function localidadeMapa(item){
+  if (item.cidade || item.estado) return { cidade:item.cidade || '', estado:item.estado || '' };
+  const partes = String(item.endereco || '').split(',').map(parte => parte.trim()).filter(Boolean);
+  const indiceBrasil = partes.findIndex(parte => /^brasil$/i.test(parte));
+  const antesDoPais = indiceBrasil >= 0 ? partes.slice(0, indiceBrasil) : partes;
+  return { cidade:antesDoPais.at(-3) || '', estado:antesDoPais.at(-2) || '' };
+}
+function cidadesMapa(){ return [...new Set(dadosMapaEquipamentos.map(item => localidadeMapa(item).cidade).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR')); }
+function estadosMapa(){ return [...new Set(dadosMapaEquipamentos.map(item => localidadeMapa(item).estado).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR')); }
 function pontosMapaFiltrados(){
   const busca = filtrosMapa.busca.toLowerCase();
   return dadosMapaEquipamentos.filter(item => {
-    const texto = `${nomeMapa(item)} ${item.dispositivo} ${item.endereco || ''} ${item.cidade || ''} ${item.estado || ''}`.toLowerCase();
+    const localidade = localidadeMapa(item);
+    const texto = `${nomeMapa(item)} ${item.dispositivo} ${item.endereco || ''} ${localidade.cidade} ${localidade.estado}`.toLowerCase();
     const noPeriodo = !(filtrosMapa.inicio || filtrosMapa.fim) || Number(item.total_leituras || 0) > 0;
     return coordenadasValidas(item.latitude, item.longitude) && noPeriodo
       && (!busca || texto.includes(busca))
-      && (!filtrosMapa.cidade || item.cidade === filtrosMapa.cidade)
-      && (!filtrosMapa.estado || item.estado === filtrosMapa.estado)
+      && (!filtrosMapa.cidade || localidade.cidade === filtrosMapa.cidade)
+      && (!filtrosMapa.estado || localidade.estado === filtrosMapa.estado)
       && (filtrosMapa.status === 'todos' || statusMapa(item) === filtrosMapa.status);
   });
 }
@@ -1387,7 +1395,7 @@ function limparFiltrosMapa(){
 function exportarMapaCsv(){
   const pontos = pontosMapaFiltrados();
   const cabecalho = 'equipamento;id;status;cidade;estado;endereco;latitude;longitude;primeira_leitura;ultima_leitura;leituras_no_periodo';
-  const linhas = pontos.map(item => [nomeMapa(item), item.dispositivo, statusMapaLabel(statusMapa(item)), item.cidade || '', item.estado || '', item.endereco || '', item.latitude, item.longitude, item.primeira_leitura || '', item.ultima_leitura || '', item.total_leituras || 0].map(valor => `"${String(valor).replace(/"/g,'""')}"`).join(';'));
+  const linhas = pontos.map(item => { const localidade = localidadeMapa(item); return [nomeMapa(item), item.dispositivo, statusMapaLabel(statusMapa(item)), localidade.cidade, localidade.estado, item.endereco || '', item.latitude, item.longitude, item.primeira_leitura || '', item.ultima_leitura || '', item.total_leituras || 0].map(valor => `"${String(valor).replace(/"/g,'""')}"`).join(';'); });
   const blob = new Blob([[cabecalho, ...linhas].join('\n')], {type:'text/csv;charset=utf-8'});
   const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `svoltix-mapa-equipamentos-${today()}.csv`; link.click(); URL.revokeObjectURL(link.href);
 }
@@ -1406,8 +1414,8 @@ function renderMapaEquipamentos(){
   pontos.forEach(item => {
     const latitude = Number(item.latitude); const longitude = Number(item.longitude);
     limites.push([latitude, longitude]);
-    const situacao = statusMapa(item);
-    L.marker([latitude, longitude]).addTo(mapaEquipamentos).bindPopup(`<div class="map-popup-title">${escapeHtml(nomeMapa(item))}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}<br>${escapeHtml(statusMapaLabel(situacao))}${item.cidade || item.estado ? `<br>${escapeHtml([item.cidade,item.estado].filter(Boolean).join(' - '))}` : ''}${item.endereco ? `<br>${escapeHtml(item.endereco)}` : ''}<br>Última leitura: ${item.ultima_leitura ? dataHoraLeitura({created_at:item.ultima_leitura}) : 'Sem telemetria'}</div>`);
+    const situacao = statusMapa(item); const localidade = localidadeMapa(item);
+    L.marker([latitude, longitude]).addTo(mapaEquipamentos).bindPopup(`<div class="map-popup-title">${escapeHtml(nomeMapa(item))}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}<br>${escapeHtml(statusMapaLabel(situacao))}${localidade.cidade || localidade.estado ? `<br>${escapeHtml([localidade.cidade,localidade.estado].filter(Boolean).join(' - '))}` : ''}${item.endereco ? `<br>${escapeHtml(item.endereco)}` : ''}<br>Última leitura: ${item.ultima_leitura ? dataHoraLeitura({created_at:item.ultima_leitura}) : 'Sem telemetria'}</div>`);
   });
   if (limites.length > 1) mapaEquipamentos.fitBounds(limites, {padding:[40,40]});
   setTimeout(() => mapaEquipamentos?.invalidateSize(), 80);

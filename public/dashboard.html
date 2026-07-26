@@ -1478,6 +1478,14 @@ function escalaRotuloMapa(){
   if (!mapaEquipamentos) return 1;
   return Math.max(.78, Math.min(1.18, .78 + ((mapaEquipamentos.getZoom() - 5) * .08)));
 }
+function fatorDeslocamentoRotuloMapa(){
+  if (!mapaEquipamentos) return 1;
+  return Math.max(.48, Math.min(1.34, Math.pow(2, (mapaEquipamentos.getZoom() - 9) * .18)));
+}
+function deslocamentoVisualRotuloMapa(deslocamento){
+  const fator = fatorDeslocamentoRotuloMapa();
+  return { x:Math.round(Number(deslocamento.x || 0) * fator), y:Math.round(Number(deslocamento.y || 0) * fator) };
+}
 function salvarDeslocamentosRotulosMapa(){
   localStorage.setItem('svoltix_mapa_deslocamentos_rotulos', JSON.stringify(deslocamentosRotulosMapa));
 }
@@ -1489,11 +1497,14 @@ function habilitarArrasteRotulo(marcador, dispositivo, deslocamento){
     rotulo.addEventListener('pointerdown', evento => {
       const inicioX = evento.clientX; const inicioY = evento.clientY;
       const atual = deslocamentosRotulosMapa[dispositivo] || {x:deslocamento[0], y:deslocamento[1]};
+      const fator = fatorDeslocamentoRotuloMapa();
+      const visual = deslocamentoVisualRotuloMapa(atual);
       rotulo.setPointerCapture?.(evento.pointerId);
       const mover = movimento => {
-        deslocamentosRotulosMapa[dispositivo] = { x:Math.round(atual.x + movimento.clientX - inicioX), y:Math.round(atual.y + movimento.clientY - inicioY) };
-        rotulo.style.setProperty('--nome-x', `${deslocamentosRotulosMapa[dispositivo].x}px`);
-        rotulo.style.setProperty('--nome-y', `${deslocamentosRotulosMapa[dispositivo].y}px`);
+        deslocamentosRotulosMapa[dispositivo] = { x:Math.round((visual.x + movimento.clientX - inicioX) / fator), y:Math.round((visual.y + movimento.clientY - inicioY) / fator) };
+        const atualVisual = deslocamentoVisualRotuloMapa(deslocamentosRotulosMapa[dispositivo]);
+        rotulo.style.setProperty('--nome-x', `${atualVisual.x}px`);
+        rotulo.style.setProperty('--nome-y', `${atualVisual.y}px`);
       };
       const concluir = () => {
         salvarDeslocamentosRotulosMapa();
@@ -1516,8 +1527,9 @@ function atualizarMarcadoresMapa(){
     const situacaoMarcador = situacaoMarcadorMapa(item);
     const deslocamentoBase = posicaoPadraoRotulo(indice);
     const deslocamento = deslocamentosRotulosMapa[item.dispositivo] || {x:deslocamentoBase[0], y:deslocamentoBase[1]};
+    const deslocamentoVisual = deslocamentoVisualRotuloMapa(deslocamento);
     const nome = nomeMapa(item);
-    const rotulo = exibirNomesNoMapa ? `<div class="svoltix-map-label" style="--nome-x:${deslocamento.x}px;--nome-y:${deslocamento.y}px;--nome-escala:${escala}"><strong>${escapeHtml(nome)}</strong></div>` : '';
+    const rotulo = exibirNomesNoMapa ? `<div class="svoltix-map-label" style="--nome-x:${deslocamentoVisual.x}px;--nome-y:${deslocamentoVisual.y}px;--nome-escala:${escala}"><strong>${escapeHtml(nome)}</strong></div>` : '';
     const icone = L.divIcon({className:'svoltix-map-marker', iconSize:[210,58], iconAnchor:[18,52], popupAnchor:[84,-44], html:`<div class="svoltix-map-pin ${situacaoMarcador}"></div>${rotulo}`});
     const marcador = L.marker([Number(item.latitude), Number(item.longitude)], {icon:icone}).bindPopup(`<div class="map-popup-title">${escapeHtml(nome)}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}<br>ESP: ${escapeHtml(statusMapaLabel(situacao))}<br>${escapeHtml(statusMedidorMapaLabel(situacaoMedidor))}${localidade.cidade || localidade.estado ? `<br>${escapeHtml([localidade.cidade,localidade.estado].filter(Boolean).join(' - '))}` : ''}${item.endereco ? `<br>${escapeHtml(item.endereco)}` : ''}<br>Ultima leitura: ${item.ultima_leitura ? dataHoraLeitura({created_at:item.ultima_leitura}) : 'Sem telemetria'}</div>`);
     if (exibirNomesNoMapa) habilitarArrasteRotulo(marcador, item.dispositivo, deslocamentoBase);

@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root {
   --bg: #080f1c;
@@ -52,6 +54,8 @@ body.dark .layout-drawer-item b { color:#dce9f6; }
 body.dark .layout-drawer-item .component-meta { color:#9db3c9; }
 body.dark .notice { background:#123653; border-color:#245276; color:#bde8ff; }
 body.dark .dashboard-card-metric { background:#172f49; }
+body.dark .map-shell, body.dark .location-form, body.dark .location-modal-card { background:#102035; color:#dce9f6; border-color:#29435f; }
+body.dark .map-empty, body.dark .location-help { color:#a8bbd0; }
 body.dark .dashboard-view-toggle button { color:#aec4da; }
 body.dark .dashboard-view-toggle button.active { background:#2b78aa; color:#fff; }
 button, input, select { font: inherit; }
@@ -410,6 +414,31 @@ tbody tr:hover { background: #edf8fb; }
 .dashboard-card-updated::before { content:'◷'; color:#2b78aa; font-size:14px; line-height:1; }
 body.dark .dashboard-card, body.dark .dashboard-view-toggle { background:#102035; border-color:#29435f; }
 body.dark .dashboard-card-metric { background:#172f49; }
+.dashboard-actions { display:flex; justify-content:center; align-items:center; gap:5px; flex-wrap:wrap; }
+.dashboard-actions .device-edit, .dashboard-actions .device-location { margin:0; min-width:92px; white-space:nowrap; }
+.device-location { color:#23628f; }
+.dashboard-card-actions { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+.dashboard-card-actions .device-edit, .dashboard-card-actions .device-location { margin:0; }
+.map-shell { background:#fff; border:1px solid #d8e2ec; border-radius:10px; overflow:hidden; box-shadow:0 1px 7px rgba(16,28,48,.08); }
+.map-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid #dfe8f0; }
+.map-toolbar h2 { margin:0; color:#173a5c; font-size:17px; }
+.map-toolbar p { margin:3px 0 0; color:#6f859e; font-size:12px; }
+.equipment-map { width:100%; height:560px; background:#eaf1f7; }
+.map-empty { min-height:320px; display:grid; place-items:center; padding:30px; text-align:center; color:#69819b; font-weight:600; }
+.map-popup-title { margin-bottom:4px; color:#173a5c; font-weight:800; }
+.map-popup-text { color:#617991; font-size:12px; line-height:1.45; }
+.location-modal { position:fixed; inset:0; z-index:80; display:grid; place-items:center; padding:20px; background:rgba(7,16,29,.55); }
+.location-modal-card { width:min(760px,100%); max-height:calc(100vh - 40px); overflow:auto; background:#fff; border:1px solid #d6e1eb; border-radius:12px; box-shadow:0 24px 60px rgba(0,0,0,.28); }
+.location-modal-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 18px; border-bottom:1px solid #dfe8f0; }
+.location-modal-head h2 { margin:0; color:#173a5c; font-size:18px; }
+.location-modal-body { padding:16px 18px 18px; }
+.location-form { padding:14px; border:1px solid #dce6ee; border-radius:9px; background:#f8fbfd; }
+.location-address-row { display:grid; grid-template-columns:1fr auto; gap:8px; }
+.location-coordinates { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+.location-help { margin:10px 0; color:#71879e; font-size:12px; line-height:1.45; }
+.location-preview-map { height:290px; margin-top:14px; border:1px solid #d5e2ec; border-radius:8px; overflow:hidden; background:#eaf1f7; }
+.location-modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+@media (max-width:650px) { .location-address-row, .location-coordinates { grid-template-columns:1fr; } .location-modal { padding:10px; } .equipment-map { height:440px; } }
 .power { color: #23628f; font-weight: 800; white-space: nowrap; }
 .power svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 5px; }
 .id-note { display: inline; margin-left: 8px; color: #7890aa; font-size: 11px; }
@@ -691,6 +720,7 @@ body.dark .dashboard-card-metric { background:#172f49; }
 
     <section class="content">
       <div class="view active" id="view-dashboards"></div>
+      <div class="view" id="view-mapa"></div>
       <div class="view" id="view-home"></div>
       <div class="view" id="view-monitoramento"></div>
       <div class="view" id="view-historico"></div>
@@ -732,6 +762,10 @@ let filtroComunicacaoDashboard = 'todos';
 let filtroMedidorDashboard = 'todos';
 let modoDashboard = localStorage.getItem('svoltix_dashboard_view') || 'tabela';
 let ordenacaoDashboard = localStorage.getItem('svoltix_dashboard_sort') || 'alfabetica';
+let localizacoesPorEquipamento = {};
+let mapaEquipamentos = null;
+let mapaEdicaoLocalizacao = null;
+let marcadorEdicaoLocalizacao = null;
 const COMPONENTES_INICIAIS = [
   ['saude','Saude da instalacao','painel'], ['indicadores','Indicadores principais','painel'],
   ['grafico','Grafico de demanda','grafico'], ['tabelaDemanda','Tabela de demanda','tabela'],
@@ -880,10 +914,12 @@ const icons = {
   moon: '<path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.5 8.5 0 1 0 20.5 15.2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
   sun: '<circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   grid: '<rect x="4" y="4" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="4" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="4" y="14" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="14" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.8"/>',
-  list: '<path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>'
+  list: '<path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+  map: '<path d="m9 18-5.5 3V6L9 3l6 3 5.5-3v15L15 21l-6-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 3v15M15 6v15" stroke="currentColor" stroke-width="1.8"/>'
 };
 const navItems = [
   ['dashboards','Meus Dashboards','chart'],
+  ['mapa','Mapa','map'],
   ['home','Home','home'],
   ['monitoramento','Monitoramento','clock'],
   ['historico','Historico','chart'],
@@ -1076,6 +1112,7 @@ function go(id){
   document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
   document.getElementById(`view-${id}`).classList.add('active');
   document.getElementById(`tab-${id}`).classList.add('active');
+  if (id === 'mapa') renderMapaEquipamentos();
   closeSidebar();
   setTimeout(() => resizeCharts(), 80);
 }
@@ -1162,6 +1199,115 @@ function renderDashboardsLegado(){
     </div>
     <div class="panel table-wrap"><table><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo Hoje</th><th>Consumo Mensal</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
+async function carregarLocalizacoes(){
+  try {
+    const resposta = await fetch(`${API}/api/equipment-locations`);
+    const dados = await resposta.json();
+    if (!resposta.ok || !dados?.sucesso) throw new Error(dados?.erro || 'localizacoes');
+    localizacoesPorEquipamento = (dados.localizacoes || []).reduce((mapa, localizacao) => {
+      mapa[localizacao.dispositivo] = localizacao;
+      return mapa;
+    }, {});
+  } catch {
+    localizacoesPorEquipamento = {};
+  }
+}
+function coordenadasValidas(latitude, longitude){
+  return Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude)) && Number(latitude) >= -90 && Number(latitude) <= 90 && Number(longitude) >= -180 && Number(longitude) <= 180;
+}
+function fecharModalLocalizacao(){
+  if (mapaEdicaoLocalizacao) mapaEdicaoLocalizacao.remove();
+  mapaEdicaoLocalizacao = null;
+  marcadorEdicaoLocalizacao = null;
+  document.getElementById('locationModal')?.remove();
+}
+function atualizarMarcadorEdicao(latitude, longitude, centralizar = false){
+  if (!mapaEdicaoLocalizacao || !coordenadasValidas(latitude, longitude)) return;
+  const ponto = [Number(latitude), Number(longitude)];
+  if (!marcadorEdicaoLocalizacao) marcadorEdicaoLocalizacao = L.marker(ponto, {draggable:true}).addTo(mapaEdicaoLocalizacao);
+  else marcadorEdicaoLocalizacao.setLatLng(ponto);
+  marcadorEdicaoLocalizacao.off('dragend').on('dragend', evento => {
+    const posicao = evento.target.getLatLng();
+    document.getElementById('locationLatitude').value = posicao.lat.toFixed(6);
+    document.getElementById('locationLongitude').value = posicao.lng.toFixed(6);
+  });
+  if (centralizar) mapaEdicaoLocalizacao.setView(ponto, 16);
+}
+function atualizarPreviaLocalizacao(){
+  const latitude = document.getElementById('locationLatitude')?.value;
+  const longitude = document.getElementById('locationLongitude')?.value;
+  atualizarMarcadorEdicao(latitude, longitude);
+}
+function iniciarMapaEdicao(latitude, longitude){
+  const pontoInicial = coordenadasValidas(latitude, longitude) ? [Number(latitude), Number(longitude)] : [-14.235, -51.9253];
+  mapaEdicaoLocalizacao = L.map('locationPreviewMap').setView(pontoInicial, coordenadasValidas(latitude, longitude) ? 15 : 4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(mapaEdicaoLocalizacao);
+  mapaEdicaoLocalizacao.on('click', evento => {
+    const { lat, lng } = evento.latlng;
+    document.getElementById('locationLatitude').value = lat.toFixed(6);
+    document.getElementById('locationLongitude').value = lng.toFixed(6);
+    atualizarMarcadorEdicao(lat, lng);
+  });
+  atualizarMarcadorEdicao(latitude, longitude);
+  setTimeout(() => mapaEdicaoLocalizacao?.invalidateSize(), 40);
+}
+function abrirModalLocalizacao(dispositivo){
+  const existente = localizacoesPorEquipamento[dispositivo] || {};
+  const equipamento = deviceList().find(d => deviceId(d) === dispositivo);
+  const nome = equipamento ? deviceName(equipamento) : dispositivo;
+  fecharModalLocalizacao();
+  document.body.insertAdjacentHTML('beforeend', `<div class="location-modal" id="locationModal" onclick="if(event.target===this)fecharModalLocalizacao()"><section class="location-modal-card" role="dialog" aria-modal="true" aria-label="Definir local no mapa"><header class="location-modal-head"><div><h2>Definir local no mapa</h2><div class="muted">${escapeHtml(nome)} · ${escapeHtml(dispositivo)}</div></div><button class="btn icon ghost" onclick="fecharModalLocalizacao()" aria-label="Fechar">×</button></header><div class="location-modal-body"><div class="location-form"><label class="label">Endereço da instalação</label><div class="location-address-row"><input id="locationAddress" class="input" value="${escapeHtml(existente.endereco || '')}" placeholder="Rua, número, cidade, estado"><button class="btn ghost" onclick="localizarEndereco()">Localizar endereço</button></div><p class="location-help">Ou informe as coordenadas abaixo. Você também pode clicar no mapa ou arrastar o marcador para ajustar a posição.</p><div class="location-coordinates"><div class="field"><label class="label">Latitude</label><input id="locationLatitude" class="input" type="number" step="any" value="${existente.latitude ?? ''}" placeholder="Ex.: -3.717220" oninput="atualizarPreviaLocalizacao()"></div><div class="field"><label class="label">Longitude</label><input id="locationLongitude" class="input" type="number" step="any" value="${existente.longitude ?? ''}" placeholder="Ex.: -38.543370" oninput="atualizarPreviaLocalizacao()"></div></div><div id="locationPreviewMap" class="location-preview-map"></div></div><div class="location-modal-actions"><button class="btn ghost" onclick="fecharModalLocalizacao()">Cancelar</button><button class="btn" onclick="salvarLocalizacao('${dispositivo.replace(/'/g, "\\'")}')">Salvar localização</button></div></div></section></div>`);
+  if (!window.L) { toast('Mapa indisponível. Verifique a conexão com a internet.'); return; }
+  setTimeout(() => iniciarMapaEdicao(existente.latitude, existente.longitude), 0);
+}
+async function localizarEndereco(){
+  const entrada = document.getElementById('locationAddress');
+  const endereco = entrada?.value.trim();
+  if (!endereco) return toast('Informe o endereço da instalação.');
+  try {
+    const resposta = await fetch(`${API}/api/geocode?endereco=${encodeURIComponent(endereco)}`);
+    const dados = await resposta.json();
+    if (!resposta.ok || !dados?.sucesso) throw new Error(dados?.erro || 'Endereço não localizado.');
+    entrada.value = dados.localizacao.endereco || endereco;
+    document.getElementById('locationLatitude').value = Number(dados.localizacao.latitude).toFixed(6);
+    document.getElementById('locationLongitude').value = Number(dados.localizacao.longitude).toFixed(6);
+    atualizarMarcadorEdicao(dados.localizacao.latitude, dados.localizacao.longitude, true);
+    toast('Endereço localizado. Ajuste o marcador se necessário.');
+  } catch (erro) { toast(erro.message || 'Não foi possível localizar o endereço.'); }
+}
+async function salvarLocalizacao(dispositivo){
+  const endereco = document.getElementById('locationAddress')?.value.trim() || '';
+  const latitude = Number(document.getElementById('locationLatitude')?.value);
+  const longitude = Number(document.getElementById('locationLongitude')?.value);
+  if (!coordenadasValidas(latitude, longitude)) return toast('Informe latitude e longitude válidas.');
+  try {
+    const resposta = await fetch(`${API}/api/equipment-locations/${encodeURIComponent(dispositivo)}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({endereco, latitude, longitude}) });
+    const dados = await resposta.json();
+    if (!resposta.ok || !dados?.sucesso) throw new Error(dados?.erro || 'Não foi possível salvar a localização.');
+    localizacoesPorEquipamento[dispositivo] = dados.localizacao;
+    fecharModalLocalizacao();
+    renderDashboards();
+    toast('Localização salva para este equipamento.');
+  } catch (erro) { toast(erro.message || 'Não foi possível salvar a localização.'); }
+}
+function renderMapaEquipamentos(){
+  const container = document.getElementById('view-mapa');
+  if (!container) return;
+  const pontos = deviceList().filter(d => statusOf(d) === 'online').map(d => ({ dispositivo:deviceId(d), nome:deviceName(d), localizacao:localizacoesPorEquipamento[deviceId(d)] })).filter(item => item.localizacao && coordenadasValidas(item.localizacao.latitude, item.localizacao.longitude));
+  if (mapaEquipamentos) { mapaEquipamentos.remove(); mapaEquipamentos = null; }
+  container.innerHTML = `${pageTitle('map','Mapa de equipamentos', `<span class="pill">${pontos.length} online com localização</span>`)}<section class="map-shell"><div class="map-toolbar"><div><h2>Equipamentos online</h2><p>Exibe somente equipamentos com telemetria recente e localização cadastrada.</p></div><button class="btn ghost" onclick="carregarLocalizacoes().then(renderMapaEquipamentos)">Atualizar mapa</button></div>${pontos.length ? '<div class="equipment-map" id="equipmentMap"></div>' : '<div class="map-empty">Nenhum equipamento online possui localização cadastrada.<br>Defina o local em Meus Dashboards para exibi-lo aqui.</div>'}</section>`;
+  if (!pontos.length || !window.L) return;
+  mapaEquipamentos = L.map('equipmentMap').setView([Number(pontos[0].localizacao.latitude), Number(pontos[0].localizacao.longitude)], pontos.length === 1 ? 15 : 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(mapaEquipamentos);
+  const limites = [];
+  pontos.forEach(item => {
+    const latitude = Number(item.localizacao.latitude); const longitude = Number(item.localizacao.longitude);
+    limites.push([latitude, longitude]);
+    L.marker([latitude, longitude]).addTo(mapaEquipamentos).bindPopup(`<div class="map-popup-title">${escapeHtml(item.nome)}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}${item.localizacao.endereco ? `<br>${escapeHtml(item.localizacao.endereco)}` : ''}</div>`);
+  });
+  if (limites.length > 1) mapaEquipamentos.fitBounds(limites, {padding:[40,40]});
+  setTimeout(() => mapaEquipamentos?.invalidateSize(), 80);
+}
 function atualizarFiltrosDashboard(){
   buscaDashboard = (document.getElementById('dashboardSearch')?.value || '').trim().toLowerCase();
   filtroComunicacaoDashboard = document.getElementById('dashboardCommunication')?.value || 'todos';
@@ -1227,7 +1373,7 @@ function renderDashboards(){
     const comunicacao = statusOf(d); const medidor = meterStatusOf(d);
     return `<tr class="dashboard-row" data-dashboard-row data-search="${escapeHtml(`${deviceName(d)} ${deviceId(d)}`.toLowerCase())}" data-communication="${comunicacao}" data-meter="${medidor}" onclick="setSelectedDevice('${id}','home')">
       <td><div class="equipment-cell"><div class="equipment-name"><b>${escapeHtml(deviceName(d))}</b><span class="id-note">ID: ${deviceId(d)}</span></div></div></td>
-      <td class="dashboard-action-cell"><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button></td>
+      <td class="dashboard-action-cell"><div class="dashboard-actions"><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button><button class="btn ghost device-location" onclick="event.stopPropagation();abrirModalLocalizacao('${id}')">Local no mapa</button></div></td>
       <td>${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}</td>
       <td>${badgeSaude(medidor, meterStatusLabel(d))}</td>
       <td class="last-update">${dataHoraLeitura(d)}</td>
@@ -1239,7 +1385,7 @@ function renderDashboards(){
     const mensal = kwhFromW(d.pt || 0, 24 * 30);
     const id = deviceId(d).replace(/'/g, "\\'");
     const comunicacao = statusOf(d); const medidor = meterStatusOf(d);
-    return `<article class="dashboard-card" data-dashboard-card data-search="${escapeHtml(`${deviceName(d)} ${deviceId(d)}`.toLowerCase())}" data-communication="${comunicacao}" data-meter="${medidor}" onclick="setSelectedDevice('${id}','home')"><div class="dashboard-card-head"><div><div class="dashboard-card-name">${escapeHtml(deviceName(d))}</div><span class="dashboard-card-id">ID: ${deviceId(d)}</span></div><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button></div><div class="dashboard-card-health">${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}${badgeSaude(medidor, meterStatusLabel(d))}</div><div class="dashboard-card-metrics"><div class="dashboard-card-metric"><span>Consumo hoje</span><b>${num(kwhFromW(d.pt,1),0)} kWh</b></div><div class="dashboard-card-metric"><span>Consumo mensal</span><b>${num(mensal,0)} kWh</b></div></div><div class="dashboard-card-updated">Última atualização: ${dataHoraLeitura(d)}</div></article>`;
+    return `<article class="dashboard-card" data-dashboard-card data-search="${escapeHtml(`${deviceName(d)} ${deviceId(d)}`.toLowerCase())}" data-communication="${comunicacao}" data-meter="${medidor}" onclick="setSelectedDevice('${id}','home')"><div class="dashboard-card-head"><div><div class="dashboard-card-name">${escapeHtml(deviceName(d))}</div><span class="dashboard-card-id">ID: ${deviceId(d)}</span></div><div class="dashboard-card-actions"><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button><button class="btn ghost device-location" onclick="event.stopPropagation();abrirModalLocalizacao('${id}')">Local no mapa</button></div></div><div class="dashboard-card-health">${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}${badgeSaude(medidor, meterStatusLabel(d))}</div><div class="dashboard-card-metrics"><div class="dashboard-card-metric"><span>Consumo hoje</span><b>${num(kwhFromW(d.pt,1),0)} kWh</b></div><div class="dashboard-card-metric"><span>Consumo mensal</span><b>${num(mensal,0)} kWh</b></div></div><div class="dashboard-card-updated">Última atualização: ${dataHoraLeitura(d)}</div></article>`;
   }).join('');
   document.getElementById('view-dashboards').innerHTML = `
     <div class="page-hd"><div class="title-row"><h1 style="font-size:24px;color:#142b44">Equipamentos monitorados</h1><span class="pill" id="dashboardFilterCount">${equipamentos.length} equipamento(s)</span></div></div>
@@ -1251,7 +1397,7 @@ function renderDashboards(){
       <button class="btn ghost" onclick="limparFiltrosDashboard()">Limpar filtros</button>
       <div class="dashboard-view-toggle" aria-label="Modo de visualizacao"><button class="dashboard-mode-icon ${modoDashboard==='tabela'?'active':''}" data-dashboard-mode="tabela" onclick="definirModoDashboard('tabela')" title="Visualizacao em tabela" aria-label="Visualizacao em tabela">${svg('list')}</button><button class="dashboard-mode-icon ${modoDashboard==='cards'?'active':''}" data-dashboard-mode="cards" onclick="definirModoDashboard('cards')" title="Visualizacao em cartoes" aria-label="Visualizacao em cartoes">${svg('grid')}</button></div>
     </div>
-    <div id="dashboardTableView" ${modoDashboard==='tabela'?'':'hidden'} class="panel table-wrap"><table class="dashboard-table"><colgroup><col style="width:24%"><col style="width:8%"><col style="width:16%"><col style="width:21%"><col style="width:12%"><col style="width:9.5%"><col style="width:9.5%"></colgroup><thead><tr><th>Equipamento</th><th>Acoes</th><th>Comunicacao</th><th>Multimedidor</th><th>Ultima atualizacao</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="7"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>
+    <div id="dashboardTableView" ${modoDashboard==='tabela'?'':'hidden'} class="panel table-wrap"><table class="dashboard-table"><colgroup><col style="width:20%"><col style="width:13%"><col style="width:15%"><col style="width:21%"><col style="width:12%"><col style="width:9.5%"><col style="width:9.5%"></colgroup><thead><tr><th>Equipamento</th><th>Acoes</th><th>Comunicacao</th><th>Multimedidor</th><th>Ultima atualizacao</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="7"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>
     <div id="dashboardCardsView" ${modoDashboard==='cards'?'':'hidden'}><div class="dashboard-card-grid">${cards}</div><div id="dashboardNoResultsCards" class="dashboard-empty" hidden>Nenhum equipamento encontrado para os filtros informados.</div></div>`;
   aplicarFiltrosNaTabelaDashboard();
 }
@@ -1479,7 +1625,7 @@ async function refreshData(inicial = false){
     devices = demoDevices();
     ensureSelectedDevice();
   }
-  if (inicial) carregarLayoutAtual().finally(renderAll);
+  if (inicial) Promise.all([carregarLayoutAtual(), carregarLocalizacoes()]).finally(renderAll);
   else {
     const demanda = document.getElementById('homeDemandNow');
     if (demanda) demanda.textContent = `${num(Number(currentDevice().pt || 0) / 1000,2)} kW`;

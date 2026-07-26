@@ -60,6 +60,7 @@ const fail = (res, err, status = 500) => {
 let colunasTelemetria = null;
 let colunaPayloadGarantida = false;
 let tabelaLayoutsGarantida = false;
+let tabelaLocalizacoesGarantida = false;
 
 // Cada equipamento possui um layout independente para o painel operacional.
 async function garantirTabelaLayouts() {
@@ -70,6 +71,19 @@ async function garantirTabelaLayouts() {
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   tabelaLayoutsGarantida = true;
+}
+
+// Mantém a localização cadastral independente das leituras de telemetria.
+async function garantirTabelaLocalizacoes() {
+  if (tabelaLocalizacoesGarantida) return;
+  await pool.query(`CREATE TABLE IF NOT EXISTS public.equipment_locations (
+    dispositivo TEXT PRIMARY KEY,
+    endereco TEXT,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  tabelaLocalizacoesGarantida = true;
 }
 
 /* Preserva o JSON industrial completo sem interferir no esquema legado. */
@@ -418,6 +432,60 @@ app.post('/api/dashboard-layout/:dispositivo', async (req, res) => {
 /* ═══════════════════════════════════════════════════════════
    START
 ═══════════════════════════════════════════════════════════ */
+/* Localização cadastrada do equipamento para consulta no mapa operacional. */
+app.get('/api/equipment-locations', async (_, res) => {
+  try {
+    await garantirTabelaLocalizacoes();
+    const result = await pool.query('SELECT dispositivo, endereco, latitude, longitude, updated_at FROM public.equipment_locations ORDER BY dispositivo');
+    ok(res, { localizacoes: result.rows });
+  } catch (e) { fail(res, e); }
+});
+
+app.get('/api/equipment-locations/:dispositivo', async (req, res) => {
+  try {
+    await garantirTabelaLocalizacoes();
+    const result = await pool.query('SELECT dispositivo, endereco, latitude, longitude, updated_at FROM public.equipment_locations WHERE dispositivo = $1', [req.params.dispositivo]);
+    ok(res, { localizacao: result.rows[0] || null });
+  } catch (e) { fail(res, e); }
+});
+
+app.post('/api/equipment-locations/:dispositivo', async (req, res) => {
+  const dispositivo = String(req.params.dispositivo || '').trim();
+  const latitude = Number(req.body?.latitude);
+  const longitude = Number(req.body?.longitude);
+  const endereco = String(req.body?.endereco || '').trim();
+  if (!dispositivo || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    return res.status(400).json({ sucesso: false, erro: 'Coordenadas geográficas inválidas.' });
+  }
+  if (endereco.length > 500) return res.status(400).json({ sucesso: false, erro: 'Endereço excede o tamanho permitido.' });
+  try {
+    await garantirTabelaLocalizacoes();
+    const result = await pool.query(
+      `INSERT INTO public.equipment_locations (dispositivo, endereco, latitude, longitude, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (dispositivo) DO UPDATE SET endereco = EXCLUDED.endereco, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, updated_at = NOW()
+       RETURNING dispositivo, endereco, latitude, longitude, updated_at`,
+      [dispositivo, endereco || null, latitude, longitude]
+    );
+    ok(res, { localizacao: result.rows[0] });
+  } catch (e) { fail(res, e); }
+});
+
+/* Resolve um endereço somente durante o cadastro de localização. */
+app.get('/api/geocode', async (req, res) => {
+  const endereco = String(req.query.endereco || '').trim();
+  if (endereco.length < 4 || endereco.length > 500) return res.status(400).json({ sucesso: false, erro: 'Informe um endereço entre 4 e 500 caracteres.' });
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=pt-BR&q=${encodeURIComponent(endereco)}`;
+    const resposta = await fetch(url, { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'SVoltix-Pulse/1.0 (mapa de equipamentos)' } });
+    if (!resposta.ok) throw new Error('Não foi possível consultar o serviço de geocodificação.');
+    const dados = await resposta.json();
+    if (!Array.isArray(dados) || !dados.length) return res.status(404).json({ sucesso: false, erro: 'Endereço não localizado. Informe latitude e longitude manualmente.' });
+    const local = dados[0];
+    ok(res, { localizacao: { endereco: local.display_name, latitude: Number(local.lat), longitude: Number(local.lon) } });
+  } catch (e) { fail(res, e); }
+});
+
 app.listen(PORT, () =>
   console.log(`[SVoltix Pulse] API rodando na porta ${PORT}`)
 );

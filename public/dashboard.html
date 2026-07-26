@@ -1146,7 +1146,7 @@ function renderDashboardsLegado(){
     return `<tr class="dashboard-row" onclick="setSelectedDevice('${deviceId(d).replace(/'/g, "\\'")}','home')">
       <td><div class="equipment-cell"><div class="equipment-name">${escapeHtml(deviceName(d))}${groupNames[deviceId(d)] ? `<span class="id-note">ID: ${deviceId(d)}</span>` : ''}</div><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${deviceId(d).replace(/'/g, "\\'")}')">Editar nome</button></div></td>
       <td>${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}</td>
-      <td>${badgeSaude(medidor, meterStatusLabel(d))}${tempoSemLeitura(d) ? `<span class="id-note">${tempoSemLeitura(d)}</span>` : ''}</td>
+      <td>${badgeSaude(medidor, meterStatusLabel(d))}</td>
       <td class="power">${svg('bolt')} ${num(kwhFromW(d.pt,1),0)} kWh</td>
       <td class="power">${svg('bolt')} ${num(mensal,0)} kWh</td>
       <td style="text-align:right">...</td>
@@ -1226,7 +1226,7 @@ function renderDashboards(){
       <td><div class="equipment-cell"><div class="equipment-name"><b>${escapeHtml(deviceName(d))}</b><span class="id-note">ID: ${deviceId(d)}</span></div></div></td>
       <td class="dashboard-action-cell"><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button></td>
       <td>${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}</td>
-      <td>${badgeSaude(medidor, meterStatusLabel(d))}${tempoSemLeitura(d) ? `<span class="id-note">${tempoSemLeitura(d)}</span>` : ''}</td>
+      <td>${badgeSaude(medidor, meterStatusLabel(d))}</td>
       <td class="power">${svg('bolt')} ${num(kwhFromW(d.pt,1),0)} kWh</td>
       <td class="power">${svg('bolt')} ${num(mensal,0)} kWh</td>
     </tr>`;

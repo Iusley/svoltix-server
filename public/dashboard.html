@@ -595,6 +595,25 @@ body.dark .svoltix-map-label span { color:#9fb5ca; }
 .gauge { text-align: center; }
 .gauge canvas { max-height: 180px; }
 .gauge b { display: block; margin-bottom: 8px; }
+.monitor-context { display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; padding:12px; margin-bottom:12px; background:#fff; border:1px solid #d8e2ec; border-radius:var(--radius); box-shadow:0 1px 7px rgba(16,28,48,.06); }
+.monitor-context .field { min-width:180px; flex:1 1 230px; }
+.monitor-context .field.window { min-width:150px; max-width:180px; flex:0 1 180px; }
+.monitor-context .monitor-actions { display:flex; align-items:center; gap:6px; }
+.monitor-shortcuts { display:flex; align-items:center; gap:4px; padding:3px; border:1px solid #d3e1ec; border-radius:8px; background:#f5f9fc; }
+.monitor-shortcuts button { min-width:38px; height:27px; padding:0 8px; border:0; border-radius:6px; background:transparent; color:#57708a; font-size:11px; font-weight:800; }
+.monitor-shortcuts button.active { background:#23628f; color:#fff; box-shadow:0 1px 3px rgba(17,50,78,.2); }
+.monitor-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:12px 0; }
+.monitor-summary-item { min-width:0; padding:11px 12px; border:1px solid #d8e5ef; border-radius:9px; background:#f8fbfd; }
+.monitor-summary-item span { display:block; overflow:hidden; color:#6e849a; font-size:11px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+.monitor-summary-item b { display:block; margin-top:4px; overflow:hidden; color:#1d5c8c; font-size:15px; text-overflow:ellipsis; white-space:nowrap; }
+.monitor-status { margin-top:8px; color:#6b8299; font-size:12px; font-weight:600; }
+body.dark .monitor-context { background:#102035; border-color:#29435f; }
+body.dark .monitor-shortcuts { background:#0d1a2d; border-color:#29435f; }
+body.dark .monitor-shortcuts button { color:#aec5d9; }
+body.dark .monitor-shortcuts button.active { background:#2b78aa; color:#fff; }
+body.dark .monitor-summary-item { background:#102035; border-color:#29435f; }
+body.dark .monitor-summary-item span, body.dark .monitor-status { color:#a8bbd0; }
+body.dark .monitor-summary-item b { color:#7dd3fc; }
 .metric-list { display: grid; gap: 0; }
 .metric-line {
   display: flex;
@@ -733,6 +752,7 @@ body.dark .toggle-field span { color:#c5d8e8; }
   .custom-grid > .component, .custom-grid > .component.medium, .custom-grid > .component.wide, .custom-grid > .component.kpi-component { grid-column:span 12; }
   .form-grid { grid-template-columns: 1fr 1fr; }
   .gauge-grid { grid-template-columns: repeat(2, 1fr); }
+  .monitor-summary { grid-template-columns:1fr; }
 }
 @media (max-width: 620px) {
   .content { padding: 16px 12px 24px; }
@@ -806,6 +826,7 @@ let dataDemandaSelecionada = localStorage.getItem('svoltix_data_demanda') || tod
 let grandezaHome = localStorage.getItem('svoltix_home_metric') || 'pt';
 let visualizacaoHome = localStorage.getItem('svoltix_home_view') || 'area';
 let leiturasHome = [];
+let leiturasMonitor = [];
 let buscaDashboard = '';
 let filtroComunicacaoDashboard = 'todos';
 let filtroMedidorDashboard = 'todos';
@@ -1238,11 +1259,45 @@ function fakeSeries(field='pt', len=14){
     return Math.max(0, val * (.65 + Math.sin(i/2) * .18 + (i % 3) * .04));
   });
 }
+const METRICAS_MONITORAMENTO = {
+  pt: { titulo:'Potência ativa', unidade:'kW', escala:0.001, total:['pt'], fases:[['pa'],['pb'],['pc']], regra:'soma', maximo:100 },
+  qt: { titulo:'Potência reativa', unidade:'kvar', escala:0.001, total:['qt','q'], fases:[['qa'],['qb'],['qc']], regra:'soma', maximo:100 },
+  va: { titulo:'Tensão', unidade:'V', escala:1, total:['vt','v'], fases:[['va'],['vb'],['vc']], regra:'media', maximo:500 },
+  ia: { titulo:'Corrente', unidade:'A', escala:1, total:['it','i'], fases:[['ia'],['ib'],['ic']], regra:'soma', maximo:200 },
+  fpt: { titulo:'Fator de potência', unidade:'', escala:1, total:['fpt','fp'], fases:[['fpa'],['fpb'],['fpc']], regra:'media', maximo:1 },
+  hz: { titulo:'Frequência', unidade:'Hz', escala:1, total:['hz','frequencia'], fases:[['hz'],['hz'],['hz']], regra:'media', maximo:70 }
+};
+function valorNumericoDaMedicao(linha, campos){
+  for (const campo of campos) {
+    const valor = Number(linha?.[campo]);
+    if (Number.isFinite(valor)) return valor;
+  }
+  return null;
+}
+function valoresDaGrandeza(linha, metrica){
+  const definicao = METRICAS_MONITORAMENTO[metrica] || METRICAS_MONITORAMENTO.pt;
+  const fasesBrutas = definicao.fases.map(campos => valorNumericoDaMedicao(linha, campos));
+  const fases = fasesBrutas.map(valor => (valor ?? 0) * definicao.escala);
+  const totalBruto = valorNumericoDaMedicao(linha, definicao.total);
+  const fasesValidas = fasesBrutas.filter(valor => valor !== null);
+  const calculado = definicao.regra === 'media'
+    ? (fasesValidas.length ? fasesValidas.reduce((soma, valor) => soma + valor, 0) / fasesValidas.length : 0)
+    : fasesValidas.reduce((soma, valor) => soma + valor, 0);
+  return { total:(totalBruto ?? calculado) * definicao.escala, fases, definicao };
+}
+function formatarValorMonitoramento(valor, definicao){
+  const casas = definicao.unidade === 'V' || definicao.unidade === 'A' ? 1 : 2;
+  return `${num(valor, casas)}${definicao.unidade ? ` ${definicao.unidade}` : ''}`;
+}
 function controlsHtml(){
-  return `<div class="filters">
-    <div class="field"><label class="label">Grandeza</label><select class="select" id="metricSelect"><option value="pt">Potencia Ativa</option><option value="va">Tensao A</option><option value="ia">Corrente A</option><option value="fpt">Fator de Potencia</option><option value="hz">Frequencia</option></select></div>
-    <div class="field sm"><label class="label">Janela de dados (s)</label><input class="input" id="monitorWindow" type="number" min="5" max="86400" step="5" value="${localStorage.getItem('svoltix_window_seconds') || 30}"></div>
-    <button class="btn" onclick="drawMonitor()">${svg('search')}Aplicar</button>
+  const metricaAtual = localStorage.getItem('svoltix_monitor_metric') || 'pt';
+  const minutos = Math.min(Math.max(parseInt(localStorage.getItem('svoltix_monitor_minutes'), 10) || 30, 1), 43200);
+  const atalhos = [[15,'15 min'],[30,'30 min'],[60,'1 h'],[360,'6 h'],[1440,'24 h']];
+  return `<div class="monitor-context">
+    <div class="field"><label class="label" for="metricSelect">Grandeza</label><select class="select" id="metricSelect" onchange="atualizarMonitoramento()">${Object.entries(METRICAS_MONITORAMENTO).map(([valor, item]) => `<option value="${valor}" ${metricaAtual===valor?'selected':''}>${item.titulo}</option>`).join('')}</select></div>
+    <div class="field window"><label class="label" for="monitorWindow">Janela de dados (minutos)</label><input class="input" id="monitorWindow" type="number" min="1" max="43200" step="1" value="${minutos}" onkeydown="if(event.key==='Enter') atualizarMonitoramento()"></div>
+    <div class="field"><label class="label">Atalho de período</label><div class="monitor-shortcuts">${atalhos.map(([valor, rotulo]) => `<button class="${minutos===valor?'active':''}" type="button" onclick="definirJanelaMonitoramento(${valor})" title="Exibir os últimos ${rotulo}" aria-label="Exibir os últimos ${rotulo}">${rotulo}</button>`).join('')}</div></div>
+    <div class="monitor-actions"><button class="btn icon" onclick="atualizarMonitoramento()" title="Atualizar monitoramento" aria-label="Atualizar monitoramento">${svg('refresh')}</button><button class="btn ghost icon" onclick="exportarMonitoramentoCsv()" title="Baixar leituras exibidas em CSV" aria-label="Baixar leituras exibidas em CSV">${svg('download')}</button></div>
   </div>`;
 }
 function renderDashboardsLegado(){
@@ -1818,13 +1873,12 @@ function renderHome(){
 function renderMonitor(){
   const selected = currentDevice();
   document.getElementById('view-monitoramento').innerHTML = `
-    ${pageTitle('clock','Monitoramento',`<span class="pill">Energia</span><span class="pill">${deviceName(selected)}</span>`)}
+    ${pageTitle('clock','Monitoramento',`<span class="pill">${escapeHtml(deviceName(selected))}</span>`)}
     ${controlsHtml()}
-    <div style="height:18px"></div>
-    ${panel('', '<div class="chart-box tall"><canvas id="monitorLine"></canvas></div>')}
-    <div class="gauge-grid" style="margin-top:20px">
-      ${['Total','Fase A','Fase B','Fase C'].map((n,i)=>`<div class="gauge"><b>${n}</b><div style="height:190px"><canvas id="gauge${i}"></canvas></div><div class="power" id="gaugeVal${i}">${num((selected?.pt||0)/1000,2)} kW</div></div>`).join('')}
-    </div>`;
+    <div class="monitor-summary" id="monitorSummary"><div class="monitor-summary-item"><span>Leitura atual</span><b>--</b></div><div class="monitor-summary-item"><span>Dados na janela</span><b>Carregando</b></div><div class="monitor-summary-item"><span>Última atualização</span><b>--</b></div></div>
+    ${panel('Série temporal', '<div class="chart-box tall"><canvas id="monitorLine"></canvas></div><div class="monitor-status" id="monitorStatus">Carregando leituras do equipamento...</div>')}
+    <div style="height:14px"></div>
+    ${panel('Leitura atual por fase', `<div class="gauge-grid">${['Total','Fase A','Fase B','Fase C'].map((n,i)=>`<div class="gauge"><b id="gaugeTitle${i}">${n}</b><div style="height:190px"><canvas id="gauge${i}"></canvas></div><div class="power" id="gaugeVal${i}">--</div></div>`).join('')}</div>`)} `;
   drawMonitor();
 }
 function renderHistorico(){
@@ -2123,43 +2177,74 @@ function rowLabels(rows){
   return rows.map((r, i) => r.created_at ? new Date(r.created_at).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) : String(i + 1));
 }
 async function drawMonitor(){
-  const selected = document.getElementById('deviceSelect')?.value || ensureSelectedDevice();
-  if (selected !== selectedDeviceId) {
-    selectedDeviceId = selected;
-    localStorage.setItem('svoltix_device', selected);
-  }
   const metric = document.getElementById('metricSelect')?.value || 'pt';
   const windowInput = document.getElementById('monitorWindow');
-  const seconds = Math.min(Math.max(parseInt(windowInput?.value, 10) || 30, 1), 30 * 24 * 3600);
-  if (windowInput) windowInput.value = seconds;
-  localStorage.setItem('svoltix_window_seconds', seconds);
+  const minutos = Math.min(Math.max(parseInt(windowInput?.value, 10) || 30, 1), 43200);
+  const seconds = minutos * 60;
+  if (windowInput) windowInput.value = minutos;
+  localStorage.setItem('svoltix_monitor_metric', metric);
+  localStorage.setItem('svoltix_monitor_minutes', minutos);
+  const definicao = METRICAS_MONITORAMENTO[metric] || METRICAS_MONITORAMENTO.pt;
+  const status = document.getElementById('monitorStatus');
+  if (status) status.textContent = 'Atualizando leituras...';
   let rows = [];
   try {
-    rows = await fetchHistoryByWindow(selectedDeviceId, seconds);
+    rows = await fetchHistoryByWindow(ensureSelectedDevice(), seconds);
   } catch {
-    rows = [currentDevice()];
+    rows = [];
   }
-  const ordered = rowsAsc(rows.length ? rows : [currentDevice()]);
+  const possuiHistorico = rows.length > 0;
+  const ordered = rowsAsc(possuiHistorico ? rows : [currentDevice()]);
+  leiturasMonitor = ordered;
   const labels = rowLabels(ordered);
-  const total = ordered.map(r => Number(r[metric] ?? r.pt ?? 0));
+  const valores = ordered.map(linha => valoresDaGrandeza(linha, metric));
   makeLine('monitorLine', labels, [
-    { label:'Total', data: total, borderColor:'#23628f', tension:.35 },
-    { label:'Fase A', data: ordered.map(r => Number(r.pa ?? r.va ?? 0)), borderColor:'#fbbf24', tension:.35 },
-    { label:'Fase B', data: ordered.map(r => Number(r.pb ?? r.vb ?? 0)), borderColor:'#34d399', tension:.35 },
-    { label:'Fase C', data: ordered.map(r => Number(r.pc ?? r.vc ?? 0)), borderColor:'#f87171', tension:.35 }
-  ], 'Potencia');
+    { label:'Total', data: valores.map(item => item.total), borderColor:'#23628f', backgroundColor:'rgba(35,98,143,.10)', fill:true, tension:.35 },
+    { label:'Fase A', data: valores.map(item => item.fases[0]), borderColor:'#fbbf24', tension:.35 },
+    { label:'Fase B', data: valores.map(item => item.fases[1]), borderColor:'#34d399', tension:.35 },
+    { label:'Fase C', data: valores.map(item => item.fases[2]), borderColor:'#f87171', tension:.35 }
+  ], definicao.unidade || definicao.titulo);
   const latest = ordered[ordered.length - 1] || currentDevice();
-  const gaugeValues = [
-    Number(latest.pt || 0) / 1000,
-    Number(latest.pa || 0) / 1000,
-    Number(latest.pb || 0) / 1000,
-    Number(latest.pc || 0) / 1000
-  ];
+  const valoresAtuais = valoresDaGrandeza(latest, metric);
+  const gaugeValues = [valoresAtuais.total, ...valoresAtuais.fases];
+  const pico = Math.max(...valores.flatMap(item => [item.total, ...item.fases]).map(valor => Math.abs(valor)), 0);
+  const maximoGauge = Math.max(definicao.maximo, Math.ceil(pico * 1.15 * 10) / 10, 0.01);
   gaugeValues.forEach((v, i) => {
-    makeGauge(`gauge${i}`, Math.max(0.01, Math.abs(v)), 10);
+    makeGauge(`gauge${i}`, Math.max(0.01, Math.abs(v)), maximoGauge);
     const el = document.getElementById(`gaugeVal${i}`);
-    if (el) el.textContent = `${num(v,2)} kW`;
+    if (el) el.textContent = formatarValorMonitoramento(v, definicao);
+    const titulo = document.getElementById(`gaugeTitle${i}`);
+    if (titulo) titulo.textContent = i === 0 ? `Total · ${definicao.titulo}` : `Fase ${'ABC'[i - 1]}`;
   });
+  const resumo = document.getElementById('monitorSummary');
+  if (resumo) resumo.innerHTML = `<div class="monitor-summary-item"><span>Leitura atual</span><b>${formatarValorMonitoramento(valoresAtuais.total, definicao)}</b></div><div class="monitor-summary-item"><span>Dados na janela</span><b>${possuiHistorico ? `${ordered.length} leituras` : 'Sem histórico'}</b></div><div class="monitor-summary-item"><span>Última atualização</span><b>${latest?.created_at ? new Date(latest.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : 'Indisponível'}</b></div>`;
+  if (status) status.textContent = possuiHistorico ? `${ordered.length} leituras exibidas nos últimos ${minutos} minuto${minutos === 1 ? '' : 's'}.` : 'Não há histórico nesta janela; exibindo a última leitura disponível.';
+}
+function atualizarMonitoramento(){
+  drawMonitor();
+}
+function definirJanelaMonitoramento(minutos){
+  const campo = document.getElementById('monitorWindow');
+  if (campo) campo.value = minutos;
+  drawMonitor();
+}
+function exportarMonitoramentoCsv(){
+  const metrica = document.getElementById('metricSelect')?.value || localStorage.getItem('svoltix_monitor_metric') || 'pt';
+  const definicao = METRICAS_MONITORAMENTO[metrica] || METRICAS_MONITORAMENTO.pt;
+  const linhas = leiturasMonitor.length ? leiturasMonitor : [currentDevice()];
+  const csv = [['data_hora','total','fase_a','fase_b','fase_c','unidade'], ...linhas.map(linha => {
+    const valores = valoresDaGrandeza(linha, metrica);
+    return [linha.created_at || '', valores.total, valores.fases[0], valores.fases[1], valores.fases[2], definicao.unidade];
+  })].map(linha => linha.map(valor => `"${String(valor ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = `svoltix_monitoramento_${metrica}_${today()}.csv`;
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  toast('Leituras exportadas em CSV');
 }
 async function loadHistory(){
   const dev = document.getElementById('histDevice')?.value || ensureSelectedDevice();

@@ -550,8 +550,8 @@ body.dark .svoltix-map-label span { color:#9fb5ca; }
 .home-kpi { cursor:pointer; transition:transform .16s ease, box-shadow .16s ease; }
 .home-kpi:hover { transform:translateY(-2px); box-shadow:0 8px 18px rgba(16,28,48,.18); }
 .home-chart-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-.chart-tools { position:absolute; z-index:5; top:9px; right:10px; display:flex; align-items:center; gap:3px; padding:4px; border:1px solid rgba(148,163,184,.34); border-radius:10px; background:rgba(255,255,255,.88); box-shadow:0 5px 16px rgba(20,48,76,.13); backdrop-filter:blur(8px); opacity:.88; transition:opacity .16s ease,transform .16s ease; }
-.chart-box:hover .chart-tools, .chart-tools:focus-within { opacity:1; transform:translateY(-1px); }
+.chart-tools { position:absolute; z-index:5; top:9px; right:10px; display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:3px; max-width:calc(100% - 18px); padding:4px; border:1px solid rgba(148,163,184,.34); border-radius:10px; background:rgba(255,255,255,.88); box-shadow:0 5px 16px rgba(20,48,76,.13); backdrop-filter:blur(8px); opacity:.88; transition:opacity .16s ease,transform .16s ease; }
+.chart-box:hover .chart-tools, .gauge:hover .chart-tools, .chart-tools:focus-within { opacity:1; transform:translateY(-1px); }
 .chart-tool { width:30px; height:30px; display:grid; place-items:center; border:0; border-radius:7px; background:transparent; color:#23628f; transition:background .16s ease,color .16s ease,transform .16s ease; }
 .chart-tool.reset { width:auto; min-width:30px; grid-auto-flow:column; gap:5px; padding:0 8px; font-weight:800; font-size:11px; }
 .chart-tool-text { display:inline; }
@@ -579,8 +579,10 @@ body.dark .chart-tools { background:rgba(16,32,53,.9); border-color:#35506f; }
 body.dark .chart-tool { color:#7dd3fc; }
 body.dark .chart-tool:hover { background:#173b59; color:#bdeafe; }
 body.dark .chart-tool.legend-hidden { color:#7189a2; background:#0b1a2d; }
-.chart-fullscreen { position:fixed; inset:20px; z-index:70; background:#fff; padding:16px; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,.35); }
-.chart-fullscreen .chart-box { height:calc(100vh - 130px); }
+.chart-fullscreen { position:fixed !important; inset:20px; z-index:70; background:#fff; padding:16px; border-radius:12px; box-shadow:0 20px 50px rgba(0,0,0,.35); }
+.chart-fullscreen.chart-box, .chart-fullscreen.gauge, .chart-fullscreen .chart-box { height:calc(100vh - 130px); }
+.chart-fullscreen.gauge > div:first-of-type { height:calc(100vh - 170px) !important; }
+body.dark .chart-fullscreen { background:#102035; border:1px solid #29435f; }
 .widget-note { color:#607791; font-size:11px; line-height:1.45; }
 .period-list { display:grid; gap:9px; }
 .period-row { display:grid; grid-template-columns:82px 1fr 70px; align-items:center; gap:9px; font-size:12px; }
@@ -642,7 +644,7 @@ body.dark .chart-tool.legend-hidden { color:#7189a2; background:#0b1a2d; }
   font-size: 11px;
 }
 .gauge-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
-.gauge { text-align: center; }
+.gauge { position:relative; text-align: center; }
 .gauge canvas { max-height: 180px; }
 .gauge b { display: block; margin-bottom: 8px; }
 .monitor-context { display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; padding:12px; margin-bottom:12px; background:#fff; border:1px solid #d8e2ec; border-radius:var(--radius); box-shadow:0 1px 7px rgba(16,28,48,.06); }
@@ -1126,8 +1128,24 @@ function exportarCsvHome(){
   const blob = new Blob([`data_hora;${meta.titulo} (${meta.unidade})\n${linhas}`], {type:'text/csv;charset=utf-8'});
   const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `svoltix-${ensureSelectedDevice()}-${dataDemandaSelecionada}.csv`; link.click(); URL.revokeObjectURL(link.href);
 }
-function alternarTelaCheiaGrafico(){ document.getElementById('homeChartPanel')?.classList.toggle('chart-fullscreen'); setTimeout(resizeCharts, 50); }
-document.addEventListener('keydown', event => { if (event.key === 'Escape') fecharModalHome(); });
+function alternarTelaCheiaGrafico(id='homeDemand'){
+  const canvas = document.getElementById(id);
+  const alvo = canvas?.closest('.chart-box, .gauge') || document.getElementById('homeChartPanel');
+  if (!alvo) return;
+  const estavaAmpliado = alvo.classList.contains('chart-fullscreen');
+  document.querySelectorAll('.chart-fullscreen').forEach(elemento => elemento.classList.remove('chart-fullscreen'));
+  if (!estavaAmpliado) alvo.classList.add('chart-fullscreen');
+  setTimeout(resizeCharts, 50);
+}
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  fecharModalHome();
+  const ampliado = document.querySelector('.chart-fullscreen');
+  if (ampliado) {
+    ampliado.classList.remove('chart-fullscreen');
+    setTimeout(resizeCharts, 50);
+  }
+});
 function deviceId(d){ return d.device || d.dispositivo || d.id || 'SVX-EQUIPAMENTO'; }
 function deviceName(d){
   const id = deviceId(d);
@@ -1279,23 +1297,32 @@ function toast(msg){
 }
 function destroyChart(id){ if (charts[id]) { charts[id].destroy(); charts[id] = null; } }
 function resizeCharts(){ Object.values(charts).forEach(c => c && c.resize()); }
-function montarControlesGrafico(id){
+function montarControlesGrafico(id, opcoes={}){
   const canvas = document.getElementById(id);
-  const caixa = canvas?.closest('.chart-box');
+  const caixa = canvas?.closest('.chart-box, .gauge');
   if (!caixa) return;
+  const configuracao = {
+    escala: true,
+    periodo: true,
+    legenda: true,
+    baixar: true,
+    copiar: true,
+    ampliar: true,
+    ...opcoes
+  };
   caixa.querySelector(`.chart-tools[data-chart-id="${id}"]`)?.remove();
   caixa.querySelector(`.chart-axis-editor[data-chart-axis-id="${id}"]`)?.remove();
   caixa.querySelector(`.chart-selection[data-chart-selection-id="${id}"]`)?.remove();
-  caixa.insertAdjacentHTML('beforeend', `<div class="chart-tools" data-chart-id="${id}" role="toolbar" aria-label="Controles do gráfico">
+  const botoesEscala = configuracao.escala ? `
     <button class="chart-tool" type="button" onclick="zoomGrafico('${id}','in')" title="Aproximar escala vertical" aria-label="Aproximar escala vertical">${svg('zoomIn')}</button>
     <button class="chart-tool" type="button" onclick="abrirAjustesEixoGrafico('${id}')" title="Ajustar escala vertical" aria-label="Ajustar escala vertical">${svg('sliders')}</button>
     <button class="chart-tool reset" type="button" onclick="redefinirZoomCompleto('${id}')" title="Restaurar zoom e escala" aria-label="Restaurar zoom e escala">${svg('resetZoom')}<span class="chart-tool-text">Reset</span></button>
-    <button class="chart-tool" type="button" onclick="redefinirZoomGrafico('${id}')" title="Restaurar escala do gráfico" aria-label="Restaurar escala do gráfico">${svg('resetZoom')}</button>
-    <button class="chart-tool" type="button" onclick="zoomGrafico('${id}','out')" title="Afastar escala vertical" aria-label="Afastar escala vertical">${svg('zoomOut')}</button>
-    <button class="chart-tool" type="button" data-chart-legend-button="${id}" onclick="alternarLegendaGrafico('${id}')" title="Ocultar legenda" aria-label="Ocultar legenda">${svg('eye')}</button>
-    <button class="chart-tool" type="button" onclick="copiarGrafico('${id}')" title="Copiar gráfico como imagem" aria-label="Copiar gráfico como imagem">${svg('copy')}</button>
-  </div>
-  <div class="chart-axis-editor" data-chart-axis-id="${id}" hidden>
+    <button class="chart-tool" type="button" onclick="zoomGrafico('${id}','out')" title="Afastar escala vertical" aria-label="Afastar escala vertical">${svg('zoomOut')}</button>` : '';
+  const botaoLegenda = configuracao.legenda ? `<button class="chart-tool" type="button" data-chart-legend-button="${id}" onclick="alternarLegendaGrafico('${id}')" title="Ocultar legenda" aria-label="Ocultar legenda">${svg('eye')}</button>` : '';
+  const botaoBaixar = configuracao.baixar ? `<button class="chart-tool" type="button" onclick="baixarGrafico('${id}')" title="Baixar gráfico como imagem" aria-label="Baixar gráfico como imagem">${svg('download')}</button>` : '';
+  const botaoCopiar = configuracao.copiar ? `<button class="chart-tool" type="button" onclick="copiarGrafico('${id}')" title="Copiar gráfico como imagem" aria-label="Copiar gráfico como imagem">${svg('copy')}</button>` : '';
+  const botaoAmpliar = configuracao.ampliar ? `<button class="chart-tool" type="button" onclick="alternarTelaCheiaGrafico('${id}')" title="Ampliar gráfico" aria-label="Ampliar gráfico">${svg('expand')}</button>` : '';
+  const editorEixo = configuracao.escala ? `<div class="chart-axis-editor" data-chart-axis-id="${id}" hidden>
     <b>Escala vertical</b>
     <div class="chart-axis-fields">
       <label>Mínimo<input id="chartYMin-${id}" type="number" step="any" inputmode="decimal"></label>
@@ -1305,9 +1332,10 @@ function montarControlesGrafico(id){
       <button type="button" onclick="fecharAjustesEixoGrafico('${id}')">Cancelar</button>
       <button class="apply" type="button" onclick="aplicarEixoGrafico('${id}')">Aplicar</button>
     </div>
-  </div>
-  <div class="chart-selection" data-chart-selection-id="${id}" aria-hidden="true"></div>`);
-  inicializarSelecaoGrafico(id);
+  </div>` : '';
+  const selecaoPeriodo = configuracao.periodo ? `<div class="chart-selection" data-chart-selection-id="${id}" aria-hidden="true"></div>` : '';
+  caixa.insertAdjacentHTML('beforeend', `<div class="chart-tools" data-chart-id="${id}" role="toolbar" aria-label="Controles do gráfico">${botoesEscala}${botaoLegenda}${botaoBaixar}${botaoCopiar}${botaoAmpliar}</div>${editorEixo}${selecaoPeriodo}`);
+  if (configuracao.periodo) inicializarSelecaoGrafico(id);
 }
 function abrirAjustesEixoGrafico(id){
   const grafico = charts[id];
@@ -1433,17 +1461,31 @@ function inicializarSelecaoGrafico(id){
     try { canvas.releasePointerCapture(evento.pointerId); } catch (_) {}
   }, { signal: controlador.signal });
 }
-async function copiarGrafico(id){
+function criarImagemGrafico(id){
   const canvas = document.getElementById(id);
-  if (!canvas) return;
+  if (!canvas) return null;
+  const exportacao = document.createElement('canvas');
+  exportacao.width = canvas.width;
+  exportacao.height = canvas.height;
+  const contexto = exportacao.getContext('2d');
+  contexto.fillStyle = document.body.classList.contains('dark') ? '#102035' : '#ffffff';
+  contexto.fillRect(0, 0, exportacao.width, exportacao.height);
+  contexto.drawImage(canvas, 0, 0);
+  return exportacao;
+}
+function baixarGrafico(id){
+  const exportacao = criarImagemGrafico(id);
+  if (!exportacao) return;
+  const link = document.createElement('a');
+  link.href = exportacao.toDataURL('image/png');
+  link.download = `svoltix-${id}-${today()}.png`;
+  link.click();
+  toast('Gráfico baixado como imagem');
+}
+async function copiarGrafico(id){
+  const exportacao = criarImagemGrafico(id);
+  if (!exportacao) return;
   try {
-    const exportacao = document.createElement('canvas');
-    exportacao.width = canvas.width;
-    exportacao.height = canvas.height;
-    const contexto = exportacao.getContext('2d');
-    contexto.fillStyle = document.body.classList.contains('dark') ? '#102035' : '#ffffff';
-    contexto.fillRect(0, 0, exportacao.width, exportacao.height);
-    contexto.drawImage(canvas, 0, 0);
     const imagem = await new Promise((resolve, reject) => exportacao.toBlob(blob => blob ? resolve(blob) : reject(new Error('imagem')), 'image/png'));
     if (!navigator.clipboard?.write || !window.ClipboardItem) throw new Error('clipboard');
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': imagem })]);
@@ -1517,7 +1559,7 @@ function makeLine(id, labels, datasets, yTitle='', tipo='line', opcoes={}){
     }
   });
   charts[id].$svoltixEixoBase = { min:eixo.min, max:eixo.max };
-  montarControlesGrafico(id);
+  montarControlesGrafico(id, { escala:true, periodo:true, legenda:true, baixar:true, copiar:true, ampliar:true });
 }
 function makeGauge(id, value, max=10){
   destroyChart(id);
@@ -1528,6 +1570,7 @@ function makeGauge(id, value, max=10){
     data: { datasets: [{ data: [Math.min(value,max), Math.max(max-value,0)], backgroundColor: ['#23628f','#e2ebf3'], borderWidth: 0, circumference: 220, rotation: 250 }] },
     options: { responsive:true, maintainAspectRatio:false, cutout:'58%', plugins:{ legend:{ display:false }, tooltip:{ enabled:false } } }
   });
+  montarControlesGrafico(id, { escala:false, periodo:false, legenda:false, baixar:true, copiar:true, ampliar:true });
 }
 function fakeSeries(field='pt', len=14){
   const base = currentDevice() || {};
@@ -2136,7 +2179,7 @@ function renderHome(){
       <div class="home-kpi" onclick="abrirResumoHome('mensal')">${kpi('card','Consumo mensal ate agora',`<span id="homeMonthlyValue">${num(t.monthKwh,0)} kWh</span>`,'Estimativa operacional do periodo')}</div>
       <div class="home-kpi" onclick="abrirResumoHome('previsao')">${kpi('chart','Previsao mensal',`<span id="homeForecastValue">${num(t.forecast,0)} kWh</span>`,'Baseada na media recente')}</div>
     </div>`,
-    grafico: `<div id="homeChartPanel">${panel(`${meta.titulo} - ${brDate(dataDemandaSelecionada)} - ${selectedName}`, '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div><div class="muted" id="homeDemandStatus" style="padding-top:8px"></div>', `<div class="home-chart-actions"><button class="btn icon ghost" onclick="deslocarDataDemanda(-1)" title="Dia anterior" aria-label="Dia anterior">${svg('arrowLeft')}</button><button class="btn icon ghost" onclick="deslocarDataDemanda(1)" title="Próximo dia" aria-label="Próximo dia">${svg('arrowRight')}</button><button class="btn icon ghost" onclick="exportarCsvHome()" title="Exportar leituras em CSV" aria-label="Exportar leituras em CSV">${svg('download')}</button><button class="btn icon ghost" onclick="alternarTelaCheiaGrafico()" title="Ampliar gráfico" aria-label="Ampliar gráfico">${svg('expand')}</button></div>`)}</div>`,
+    grafico: `<div id="homeChartPanel">${panel(`${meta.titulo} - ${brDate(dataDemandaSelecionada)} - ${selectedName}`, '<div class="chart-box tall"><canvas id="homeDemand"></canvas></div><div class="muted" id="homeDemandStatus" style="padding-top:8px"></div>', `<div class="home-chart-actions"><button class="btn icon ghost" onclick="deslocarDataDemanda(-1)" title="Dia anterior" aria-label="Dia anterior">${svg('arrowLeft')}</button><button class="btn icon ghost" onclick="deslocarDataDemanda(1)" title="Próximo dia" aria-label="Próximo dia">${svg('arrowRight')}</button><button class="btn icon ghost" onclick="exportarCsvHome()" title="Exportar leituras em CSV" aria-label="Exportar leituras em CSV">${svg('download')}</button></div>`)}</div>`,
     tabelaDemanda: panel(`Demanda por hora - ${brDate(dataDemandaSelecionada)}`, '<div class="mini-table" id="homeDemandTable"><div class="empty">Carregando leituras do dia...</div></div>'),
     eficiencia: panel('Eficiencia energetica', '<div class="gauge"><div style="height:160px"><canvas id="effGauge"></canvas></div><b id="effValue" style="color:#23628f;font-size:20px">--</b><p class="widget-note" id="effText">Aguardando dados suficientes para avaliar.</p></div>'),
     metricas: panel('Metricas de consumo', '<div class="metric-list" id="homeMetrics"><div class="metric-line"><span>Carregando metricas...</span><b>--</b></div></div>'),

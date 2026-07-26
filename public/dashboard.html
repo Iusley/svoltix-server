@@ -386,8 +386,10 @@ tbody tr:hover { background: #edf8fb; }
 .dashboard-table { table-layout:fixed; }
 .dashboard-table th, .dashboard-table td { overflow:hidden; text-overflow:ellipsis; }
 .dashboard-table th { text-align:center; }
+.dashboard-table th:first-child, .dashboard-table td:first-child { text-align:left; }
 .dashboard-table td:not(:first-child) { text-align:center; vertical-align:middle; }
 .dashboard-table td:not(:first-child) .health-badge { margin-inline:auto; }
+.dashboard-table .dashboard-action-cell { padding-inline:6px; }
 .dashboard-view-toggle { display:flex; gap:4px; padding:3px; border:1px solid #d5e0eb; border-radius:7px; background:#fff; }
 .dashboard-view-toggle button { height:27px; border:0; border-radius:5px; padding:0 10px; background:transparent; color:#53708d; font-size:11px; font-weight:800; }
 .dashboard-view-toggle button.active { background:#23628f; color:#fff; }
@@ -455,9 +457,9 @@ body.dark .dashboard-card-metric { background:#172f49; }
   font-size: 10px;
   vertical-align: middle;
 }
-.equipment-cell { display:grid; grid-template-columns:minmax(0,1fr) 92px; align-items:center; gap:10px; min-width:270px; }
+.equipment-cell { display:block; min-width:0; }
 .equipment-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.equipment-cell .device-edit { margin-left:0; }
+.dashboard-action-cell .device-edit { margin:0; }
 .custom-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; }
 .custom-grid > .component { grid-column:span 4; }
 .custom-grid > .component.medium { grid-column:span 6; }
@@ -1221,7 +1223,8 @@ function renderDashboards(){
     const id = deviceId(d).replace(/'/g, "\\'");
     const comunicacao = statusOf(d); const medidor = meterStatusOf(d);
     return `<tr class="dashboard-row" data-dashboard-row data-search="${escapeHtml(`${deviceName(d)} ${deviceId(d)}`.toLowerCase())}" data-communication="${comunicacao}" data-meter="${medidor}" onclick="setSelectedDevice('${id}','home')">
-      <td><div class="equipment-cell"><div class="equipment-name"><b>${escapeHtml(deviceName(d))}</b><span class="id-note">ID: ${deviceId(d)}</span></div><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button></div></td>
+      <td><div class="equipment-cell"><div class="equipment-name"><b>${escapeHtml(deviceName(d))}</b><span class="id-note">ID: ${deviceId(d)}</span></div></div></td>
+      <td class="dashboard-action-cell"><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button></td>
       <td>${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}</td>
       <td>${badgeSaude(medidor, meterStatusLabel(d))}${tempoSemLeitura(d) ? `<span class="id-note">${tempoSemLeitura(d)}</span>` : ''}</td>
       <td class="power">${svg('bolt')} ${num(kwhFromW(d.pt,1),0)} kWh</td>
@@ -1244,7 +1247,7 @@ function renderDashboards(){
       <button class="btn ghost" onclick="limparFiltrosDashboard()">Limpar filtros</button>
       <div class="dashboard-view-toggle" aria-label="Modo de visualizacao"><button class="dashboard-mode-icon ${modoDashboard==='tabela'?'active':''}" data-dashboard-mode="tabela" onclick="definirModoDashboard('tabela')" title="Visualizacao em tabela" aria-label="Visualizacao em tabela">${svg('list')}</button><button class="dashboard-mode-icon ${modoDashboard==='cards'?'active':''}" data-dashboard-mode="cards" onclick="definirModoDashboard('cards')" title="Visualizacao em cartoes" aria-label="Visualizacao em cartoes">${svg('grid')}</button></div>
     </div>
-    <div id="dashboardTableView" ${modoDashboard==='tabela'?'':'hidden'} class="panel table-wrap"><table class="dashboard-table"><colgroup><col style="width:32%"><col style="width:20%"><col style="width:22%"><col style="width:13%"><col style="width:13%"></colgroup><thead><tr><th>Equipamento</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="5"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>
+    <div id="dashboardTableView" ${modoDashboard==='tabela'?'':'hidden'} class="panel table-wrap"><table class="dashboard-table"><colgroup><col style="width:27%"><col style="width:8%"><col style="width:18%"><col style="width:24%"><col style="width:11.5%"><col style="width:11.5%"></colgroup><thead><tr><th>Equipamento</th><th>Acoes</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="6"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>
     <div id="dashboardCardsView" ${modoDashboard==='cards'?'':'hidden'}><div class="dashboard-card-grid">${cards}</div><div id="dashboardNoResultsCards" class="dashboard-empty" hidden>Nenhum equipamento encontrado para os filtros informados.</div></div>`;
   aplicarFiltrosNaTabelaDashboard();
 }

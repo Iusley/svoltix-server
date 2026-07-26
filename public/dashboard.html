@@ -1563,21 +1563,6 @@ function renderMapaEquipamentos(){
   camadaMarcadoresMapa = L.layerGroup().addTo(mapaEquipamentos);
   atualizarMarcadoresMapa();
   setTimeout(() => mapaEquipamentos?.invalidateSize(), 80);
-  return;
-  pontos.forEach(item => {
-    const latitude = Number(item.latitude); const longitude = Number(item.longitude);
-    const situacao = statusMapa(item);
-    const situacaoMedidor = statusMedidorMapa(item);
-    const localidade = localidadeMapa(item);
-    const nome = nomeMapa(item);
-    const resumo = `ESP: ${statusMapaLabel(situacao)} · ${statusMedidorMapaLabel(situacaoMedidor)}`;
-    const icone = L.divIcon({className:'svoltix-map-marker', iconSize:[210,58], iconAnchor:[18,52], popupAnchor:[84,-44], html:`<div class="svoltix-map-pin ${situacao}"></div><div class="svoltix-map-label"><strong>${escapeHtml(nome)}</strong><span>${escapeHtml(resumo)}</span></div>`});
-    L.marker([latitude, longitude], {icon:icone}).addTo(mapaEquipamentos).bindPopup(`<div class="map-popup-title">${escapeHtml(nome)}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}<br>ESP: ${escapeHtml(statusMapaLabel(situacao))}<br>${escapeHtml(statusMedidorMapaLabel(situacaoMedidor))}${localidade.cidade || localidade.estado ? `<br>${escapeHtml([localidade.cidade,localidade.estado].filter(Boolean).join(' - '))}` : ''}${item.endereco ? `<br>${escapeHtml(item.endereco)}` : ''}<br>Ultima leitura: ${item.ultima_leitura ? dataHoraLeitura({created_at:item.ultima_leitura}) : 'Sem telemetria'}</div>`);
-    return;
-    const situacaoLegado = statusMapa(item); const localidadeLegada = localidadeMapa(item);
-    L.marker([latitude, longitude]).addTo(mapaEquipamentos).bindPopup(`<div class="map-popup-title">${escapeHtml(nomeMapa(item))}</div><div class="map-popup-text">ID: ${escapeHtml(item.dispositivo)}<br>${escapeHtml(statusMapaLabel(situacao))}${localidade.cidade || localidade.estado ? `<br>${escapeHtml([localidade.cidade,localidade.estado].filter(Boolean).join(' - '))}` : ''}${item.endereco ? `<br>${escapeHtml(item.endereco)}` : ''}<br>Última leitura: ${item.ultima_leitura ? dataHoraLeitura({created_at:item.ultima_leitura}) : 'Sem telemetria'}</div>`);
-  });
-  setTimeout(() => mapaEquipamentos?.invalidateSize(), 80);
 }
 function atualizarFiltrosDashboard(){
   buscaDashboard = (document.getElementById('dashboardSearch')?.value || '').trim().toLowerCase();

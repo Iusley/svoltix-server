@@ -424,6 +424,12 @@ body.dark .dashboard-card-metric { background:#172f49; }
 .map-toolbar h2 { margin:0; color:#173a5c; font-size:17px; }
 .map-toolbar p { margin:3px 0 0; color:#6f859e; font-size:12px; }
 .map-toolbar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.map-style-switch { display:inline-flex; align-items:center; gap:2px; padding:2px; border:1px solid #cfdeeb; border-radius:8px; background:#f5f9fc; }
+.map-style-switch .btn { border:0; background:transparent; color:#55708b; }
+.map-style-switch .btn.active { background:#23628f; color:#fff; box-shadow:0 1px 3px rgba(17,50,78,.25); }
+body.dark .map-style-switch { border-color:#29435f; background:#0d1a2d; }
+body.dark .map-style-switch .btn { color:#aec5d9; }
+body.dark .map-style-switch .btn.active { background:#2b78aa; color:#fff; }
 .map-filters { display:grid; grid-template-columns:minmax(170px,1.5fr) minmax(120px,1fr) minmax(120px,1fr) minmax(125px,1fr) minmax(135px,1fr) minmax(135px,1fr) auto; gap:8px; padding:12px 14px; border-bottom:1px solid #dfe8f0; background:#f8fbfd; }
 .map-filter-field { min-width:0; }
 .map-filter-field .label { margin-bottom:4px; }
@@ -952,6 +958,7 @@ const icons = {
   refresh: '<path d="M20 11a8 8 0 0 0-14.9-4M4 5v4h4M4 13a8 8 0 0 0 14.9 4M20 19v-4h-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
   eye: '<path d="M2.5 12s3.3-6 9.5-6 9.5 6 9.5 6-3.3 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.8"/>',
   eyeOff: '<path d="M3 3 21 21M10.6 6.2A9.8 9.8 0 0 1 12 6c6.2 0 9.5 6 9.5 6a17.8 17.8 0 0 1-3.1 3.8M6.3 6.3A17.6 17.6 0 0 0 2.5 12S5.8 18 12 18c1.4 0 2.6-.3 3.7-.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  layers: '<path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m4 12 8 4.5 8-4.5M4 16.5 12 21l8-4.5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
   clear: '<path d="m7 16 8-8 3 3-8 8H7v-3ZM13 5l2-2 5 5-2 2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 21h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
 };
 const navItems = [
@@ -1314,6 +1321,11 @@ function definirEstiloMapa(valor){
   adicionarContornoParaiba(mapaEdicaoLocalizacao);
   adicionarContornoParaiba(mapaEquipamentos);
   document.querySelectorAll('[data-map-style]').forEach(campo => { campo.value = estiloMapa; });
+  document.querySelectorAll('[data-map-style-button]').forEach(botao => {
+    const ativo = botao.dataset.mapStyleButton === estiloMapa;
+    botao.classList.toggle('active', ativo);
+    botao.setAttribute('aria-pressed', String(ativo));
+  });
 }
 function iniciarMapaEdicao(latitude, longitude){
   const possuiCoordenadas = coordenadasValidas(latitude, longitude);
@@ -1569,7 +1581,9 @@ function renderMapaEquipamentos(){
   container.querySelector('.map-summary')?.setAttribute('id', 'mapSummary');
   const acoesMapa = container.querySelector('.map-toolbar-actions');
   if (acoesMapa) {
-    acoesMapa.querySelectorAll('button').forEach(botao => botao.remove());
+    const seletorEstiloMapa = acoesMapa.querySelector('[data-map-style]');
+    acoesMapa.querySelectorAll(':scope > button').forEach(botao => botao.remove());
+    seletorEstiloMapa?.replaceWith(`<div class="map-style-switch" role="group" aria-label="Aparência do mapa"><button class="btn icon ${estiloMapa === 'claro' ? 'active' : ''}" data-map-style-button="claro" onclick="definirEstiloMapa('claro')" title="Mapa claro" aria-label="Mapa claro" aria-pressed="${estiloMapa === 'claro'}">${svg('sun')}</button><button class="btn icon ${estiloMapa === 'escuro' ? 'active' : ''}" data-map-style-button="escuro" onclick="definirEstiloMapa('escuro')" title="Mapa escuro" aria-label="Mapa escuro" aria-pressed="${estiloMapa === 'escuro'}">${svg('moon')}</button><button class="btn icon ${estiloMapa === 'satelite' ? 'active' : ''}" data-map-style-button="satelite" onclick="definirEstiloMapa('satelite')" title="Mapa satélite" aria-label="Mapa satélite" aria-pressed="${estiloMapa === 'satelite'}">${svg('layers')}</button></div>`);
     acoesMapa.insertAdjacentHTML('beforeend', `<button class="btn ghost icon" onclick="carregarDadosMapa()" title="Atualizar dados do mapa" aria-label="Atualizar dados do mapa">${svg('refresh')}</button><button class="btn ghost icon" onclick="exportarMapaCsv()" title="Baixar dados do mapa em CSV" aria-label="Baixar dados do mapa em CSV">${svg('download')}</button><button class="btn ghost icon" id="toggleMapLabels" onclick="alternarNomesMapa()" title="${exibirNomesNoMapa ? 'Ocultar nomes dos marcadores' : 'Mostrar nomes dos marcadores'}" aria-label="${exibirNomesNoMapa ? 'Ocultar nomes dos marcadores' : 'Mostrar nomes dos marcadores'}">${svg(exibirNomesNoMapa ? 'eyeOff' : 'eye')}</button>`);
   }
   const limparMapa = container.querySelector('.map-filters > .btn');

@@ -735,9 +735,9 @@ const COMPONENTES_INICIAIS = [
   ['grafico','Grafico de demanda','grafico'], ['tabelaDemanda','Tabela de demanda','tabela'],
   ['eficiencia','Eficiencia energetica','gauge'], ['metricas','Metricas de consumo','painel'],
   ['periodos','Consumo por periodo','painel'], ['alertas','Alertas','painel'],
-  ['areas','Areas e equipamentos','tabela'], ['medicoes','Ultimas medicoes','tabela']
+  ['medicoes','Ultimas medicoes','tabela']
 ];
-function tamanhoPadraoComponente(id){ return ['grafico','tabelaDemanda','areas','medicoes','indicadores','saude'].includes(id) ? 'largo' : 'normal'; }
+function tamanhoPadraoComponente(id){ return ['grafico','tabelaDemanda','medicoes','indicadores','saude'].includes(id) ? 'largo' : 'normal'; }
 function layoutPadrao(){ return { itens: COMPONENTES_INICIAIS.map(([id,nome,tipo]) => ({id,nome,tipo,visivel:true,tamanho:tamanhoPadraoComponente(id)})) }; }
 function layoutAtual(){
   const id = ensureSelectedDevice();
@@ -922,6 +922,7 @@ function atualizarControleTema(){
 function alternarTema(){ const escuro = !document.body.classList.contains('dark'); document.body.classList.toggle('dark', escuro); localStorage.setItem('svoltix_tema', escuro ? 'dark' : 'light'); atualizarControleTema(); renderAll(); setTimeout(resizeCharts, 80); }
 function aplicarTemaSalvo(){ document.body.classList.toggle('dark', localStorage.getItem('svoltix_tema') === 'dark'); atualizarControleTema(); }
 function horaLeitura(linha){ const data = new Date(linha.created_at); return Number.isNaN(data.getTime()) ? '--:--' : data.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function dataHoraLeitura(linha){ const data = new Date(linha?.created_at); return Number.isNaN(data.getTime()) ? '--' : data.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 function consumoKwhDasLeituras(linhas){
   const ordenadas = linhas.slice().sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
   return ordenadas.slice(1).reduce((soma, linha, indice) => {
@@ -1227,6 +1228,7 @@ function renderDashboards(){
       <td class="dashboard-action-cell"><button class="btn ghost device-edit" onclick="event.stopPropagation();editarNomeEquipamento('${id}')">Editar nome</button></td>
       <td>${badgeSaude(comunicacao, `SVoltix ${statusLabel(comunicacao)}`)}</td>
       <td>${badgeSaude(medidor, meterStatusLabel(d))}</td>
+      <td class="last-update">${dataHoraLeitura(d)}</td>
       <td class="power">${svg('bolt')} ${num(kwhFromW(d.pt,1),0)} kWh</td>
       <td class="power">${svg('bolt')} ${num(mensal,0)} kWh</td>
     </tr>`;
@@ -1247,7 +1249,7 @@ function renderDashboards(){
       <button class="btn ghost" onclick="limparFiltrosDashboard()">Limpar filtros</button>
       <div class="dashboard-view-toggle" aria-label="Modo de visualizacao"><button class="dashboard-mode-icon ${modoDashboard==='tabela'?'active':''}" data-dashboard-mode="tabela" onclick="definirModoDashboard('tabela')" title="Visualizacao em tabela" aria-label="Visualizacao em tabela">${svg('list')}</button><button class="dashboard-mode-icon ${modoDashboard==='cards'?'active':''}" data-dashboard-mode="cards" onclick="definirModoDashboard('cards')" title="Visualizacao em cartoes" aria-label="Visualizacao em cartoes">${svg('grid')}</button></div>
     </div>
-    <div id="dashboardTableView" ${modoDashboard==='tabela'?'':'hidden'} class="panel table-wrap"><table class="dashboard-table"><colgroup><col style="width:27%"><col style="width:8%"><col style="width:18%"><col style="width:24%"><col style="width:11.5%"><col style="width:11.5%"></colgroup><thead><tr><th>Equipamento</th><th>Acoes</th><th>Comunicacao</th><th>Multimedidor</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="6"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>
+    <div id="dashboardTableView" ${modoDashboard==='tabela'?'':'hidden'} class="panel table-wrap"><table class="dashboard-table"><colgroup><col style="width:24%"><col style="width:8%"><col style="width:16%"><col style="width:21%"><col style="width:12%"><col style="width:9.5%"><col style="width:9.5%"></colgroup><thead><tr><th>Equipamento</th><th>Acoes</th><th>Comunicacao</th><th>Multimedidor</th><th>Ultima atualizacao</th><th>Consumo hoje</th><th>Consumo mensal</th></tr></thead><tbody id="dashboardTableBody">${linhas}<tr id="dashboardNoResults" hidden><td colspan="7"><div class="dashboard-empty">Nenhum equipamento encontrado para os filtros informados.</div></td></tr></tbody></table></div>
     <div id="dashboardCardsView" ${modoDashboard==='cards'?'':'hidden'}><div class="dashboard-card-grid">${cards}</div><div id="dashboardNoResultsCards" class="dashboard-empty" hidden>Nenhum equipamento encontrado para os filtros informados.</div></div>`;
   aplicarFiltrosNaTabelaDashboard();
 }
@@ -1306,7 +1308,6 @@ function renderHome(){
     metricas: panel('Metricas de consumo', '<div class="metric-list" id="homeMetrics"><div class="metric-line"><span>Carregando metricas...</span><b>--</b></div></div>'),
     periodos: panel('Consumo por periodo', '<div class="period-list" id="homePeriods"><div class="empty">Aguardando dados do periodo.</div></div>'),
     alertas: panel('Alertas', `<div id="homeAlerts"><div class="alert-card"><div class="alert-hd"><span>ALERTAS</span><span>${alertaAtivo ? 'ATIVO' : 'SEM ALERTA'}</span></div><div class="alert-body"><b>${alertaAtivo ? 'Multimedidor indisponivel' : 'Nenhum alerta ativo'}</b><p>${alertaAtivo ? `O SVoltix ${selectedName} esta online, mas nao recebe leitura valida do multimedidor.` : 'Nenhuma ocorrencia ativa para este equipamento.'}</p></div><div class="alert-foot"><span>${tempoSemLeitura(selected) || 'Leitura valida atual'}</span><span>${deviceId(selected)}</span></div></div></div>`),
-    areas: panel('Areas e equipamentos', '<div class="mini-table" id="homeAreasTable"><div class="empty">Carregando equipamentos...</div></div>'),
     medicoes: panel('Ultimas medicoes', '<div class="mini-table" id="homeMeasurements"><div class="empty">Carregando medicoes...</div></div>')
   };
   const editor = editandoLayout ? `<div class="layout-drawer-backdrop" onclick="alternarEditorLayout()"></div><aside class="layout-drawer"><div class="layout-drawer-head"><div><h2>Lista de componentes</h2><p>${selectedName} · alteracoes salvas por equipamento</p></div><button class="btn icon ghost" onclick="alternarEditorLayout()">×</button></div><div class="layout-drawer-tabs"><span class="active">Energia</span><span>Agua</span><span>Producao</span></div><div class="layout-drawer-list">${layout.itens.map((item, indice) => `<div class="layout-drawer-item"><span class="drag-handle" title="Arraste para reorganizar">⠿</span><input type="checkbox" aria-label="Exibir ${item.nome}" ${item.visivel ? 'checked' : ''} onchange="alterarItemLayout(${indice},'visivel',this.checked)"><div style="flex:1"><b>${item.nome}</b><span class="component-meta">${item.tipo} · ${item.tamanho === 'largo' ? 'largura total' : 'card'}</span></div><select onchange="alterarItemLayout(${indice},'tamanho',this.value)"><option value="normal" ${item.tamanho === 'normal' ? 'selected' : ''}>Card</option><option value="largo" ${item.tamanho === 'largo' ? 'selected' : ''}>Largo</option></select><button class="btn ghost" onclick="moverItemLayout(${indice},-1)" title="Mover para cima">↑</button><button class="btn ghost" onclick="moverItemLayout(${indice},1)" title="Mover para baixo">↓</button></div>`).join('')}</div><div class="layout-drawer-actions"><button class="btn ghost" onclick="restaurarLayoutPadrao()">Restaurar</button><button class="btn" onclick="salvarLayout()">Salvar</button></div></aside>` : '';
